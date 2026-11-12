@@ -1,0 +1,29 @@
+{
+  "name": "lumi-lite",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lumi Lite — Lightweight LMS & Online Examination Platform",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "build:api": "npm run build --workspace=apps/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "test:api": "npm run test --workspace=apps/api",
+    "test:e2e:api": "npm run test:e2e --workspace=apps/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"apps/**/*.{ts,tsx,js,jsx,json,css,md}\""
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "prisma@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "bcrypt@6.0.0": true
+  }
+}
