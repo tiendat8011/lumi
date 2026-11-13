@@ -5,7 +5,9 @@ import {
   Min,
   IsDateString,
   IsBoolean,
+  IsEnum,
 } from 'class-validator';
+import { GradingMode } from '@prisma/client';
 
 export class UpdateExamDto {
   @IsOptional()
@@ -53,4 +55,12 @@ export class UpdateExamDto {
   @IsOptional()
   @IsString()
   accessCode?: string;
+
+  @IsOptional()
+  @IsEnum(GradingMode)
+  gradingMode?: GradingMode;
+
+  @IsOptional()
+  @IsBoolean()
+  allowFileSubmission?: boolean;
 }

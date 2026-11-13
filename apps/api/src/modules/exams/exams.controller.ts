@@ -13,6 +13,8 @@ import { ExamsService } from './exams.service';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { AddExamQuestionDto } from './dto/add-exam-question.dto';
+import { ReleaseResultsDto } from './dto/release-results.dto';
+import { UuidPipe } from '../../common/pipes/uuid.pipe';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -22,10 +24,7 @@ export class ExamsController {
   constructor(private readonly examsService: ExamsService) {}
 
   @Post()
-  async create(
-    @CurrentUser('id') userId: string,
-    @Body() dto: CreateExamDto,
-  ) {
+  async create(@CurrentUser('id') userId: string, @Body() dto: CreateExamDto) {
     return this.examsService.create(userId, dto);
   }
 
@@ -36,7 +35,7 @@ export class ExamsController {
 
   @Get(':id')
   async findOne(
-    @Param('id') id: string,
+    @Param('id', UuidPipe) id: string,
     @CurrentUser('id') userId: string,
   ) {
     return this.examsService.findByIdForOwner(id, userId);
@@ -44,7 +43,7 @@ export class ExamsController {
 
   @Patch(':id')
   async update(
-    @Param('id') id: string,
+    @Param('id', UuidPipe) id: string,
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateExamDto,
   ) {
@@ -53,7 +52,7 @@ export class ExamsController {
 
   @Post(':id/questions')
   async addQuestion(
-    @Param('id') id: string,
+    @Param('id', UuidPipe) id: string,
     @CurrentUser('id') userId: string,
     @Body() dto: AddExamQuestionDto,
   ) {
@@ -63,8 +62,8 @@ export class ExamsController {
   @Delete(':id/questions/:eqId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeQuestion(
-    @Param('id') id: string,
-    @Param('eqId') eqId: string,
+    @Param('id', UuidPipe) id: string,
+    @Param('eqId', UuidPipe) eqId: string,
     @CurrentUser('id') userId: string,
   ) {
     await this.examsService.removeQuestion(id, eqId, userId);
@@ -73,7 +72,7 @@ export class ExamsController {
   @Post(':id/publish')
   @HttpCode(HttpStatus.OK)
   async publish(
-    @Param('id') id: string,
+    @Param('id', UuidPipe) id: string,
     @CurrentUser('id') userId: string,
   ) {
     return this.examsService.publish(id, userId);
@@ -81,17 +80,17 @@ export class ExamsController {
 
   @Patch(':id/release-results')
   async releaseResults(
-    @Param('id') id: string,
+    @Param('id', UuidPipe) id: string,
     @CurrentUser('id') userId: string,
-    @Body('release') release: boolean,
+    @Body() dto: ReleaseResultsDto,
   ) {
-    return this.examsService.releaseResults(id, userId, release ?? true);
+    return this.examsService.releaseResults(id, userId, dto.release);
   }
 
   @Post(':id/regrade')
   @HttpCode(HttpStatus.OK)
   async regrade(
-    @Param('id') id: string,
+    @Param('id', UuidPipe) id: string,
     @CurrentUser('id') userId: string,
   ) {
     return this.examsService.regrade(id, userId);

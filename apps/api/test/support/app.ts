@@ -1,12 +1,10 @@
-import { ValidationPipe } from '@nestjs/common';
 import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module';
-import { HttpExceptionFilter } from '../../src/common/filters/http-exception.filter';
-import { TransformInterceptor } from '../../src/common/interceptors/transform.interceptor';
+import { configureApp } from '../../src/common/configure-app';
 import { PrismaService } from '../../src/database/prisma.service';
 import { assertTestDatabaseUrl, TEST_DB_NAME } from './env';
 
@@ -47,11 +45,9 @@ export interface TestApp {
 
 /**
  * Boots the real AppModule on Fastify with the same global prefix, pipe,
- * filter and interceptor as src/main.ts. Requests go through Fastify's
- * inject(), so no TCP port is bound. URLs are given without the /api prefix.
- *
- * KEEP IN SYNC with src/main.ts: main.ts applies these globally outside
- * AppModule, so a change there is not picked up here automatically.
+ * filter and interceptor as src/main.ts: both call configureApp() from
+ * src/common/configure-app.ts. Requests go through Fastify's inject(), so no
+ * TCP port is bound. URLs are given without the /api prefix.
  */
 export async function createTestApp(): Promise<TestApp> {
   assertTestDatabaseUrl();
@@ -63,17 +59,7 @@ export async function createTestApp(): Promise<TestApp> {
   const app = moduleRef.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter(),
   );
-  app.setGlobalPrefix('api');
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-  app.useGlobalFilters(new HttpExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor());
+  await configureApp(app);
 
   await app.init();
   await app.getHttpAdapter().getInstance().ready();

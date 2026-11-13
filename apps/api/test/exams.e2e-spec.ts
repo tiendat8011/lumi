@@ -6,6 +6,7 @@ import {
   createClassroom,
   createExam,
   createMcqQuestion,
+  createMixedScenario,
   createStudent,
   createTeacher,
   publishExam,
@@ -141,9 +142,52 @@ describe('exams (baseline)', () => {
       ]);
     });
 
-    it.todo(
-      'D3 5.2 (defect, see report): DELETE /exams/:id/questions/:eqId refuses an eqId that belongs to a different exam (exams.service.ts removeQuestion deletes by eqId alone)',
-    );
+    it("D3 5.2: DELETE /exams/:id/questions/:eqId refuses an eqId that belongs to a different exam (404) and deletes nothing", async () => {
+      const mine = await createExam(t, owner);
+      const theirs = await createExam(t, otherTeacher);
+      const q = await createMcqQuestion(t, otherTeacher);
+      const foreign = await addExamQuestion(t, otherTeacher, theirs.id, q.id, 0);
+
+      const res = await t.delete(`/exams/${mine.id}/questions/${foreign.id}`, { token: owner.token });
+      expect([res.status, res.error!.code]).toEqual([404, 'QUESTION_NOT_FOUND']);
+      expect(await t.prisma.examQuestion.count({ where: { id: foreign.id } })).toBe(1);
+    });
+
+    it('a duplicate position is 409; the 201st question is 400 MAX_QUESTIONS_REACHED; a malformed id is 400 VALIDATION_ERROR', async () => {
+      const exam = await createExam(t, owner);
+      const q1 = await createMcqQuestion(t, owner);
+      const q2 = await createMcqQuestion(t, owner);
+      await addExamQuestion(t, owner, exam.id, q1.id, 0);
+      const add = (position: number, examId = exam.id) =>
+        t.post(`/exams/${examId}/questions`, {
+          token: owner.token,
+          body: { questionId: q2.id, points: 1, position },
+        });
+
+      expect((await add(0)).status).toBe(409);
+      expect(await t.prisma.examQuestion.count({ where: { examId: exam.id } })).toBe(1);
+
+      const malformed = await add(1, 'not-a-uuid');
+      expect([malformed.status, malformed.error!.code]).toEqual([400, 'VALIDATION_ERROR']);
+      const badBody = await t.post(`/exams/${exam.id}/questions`, {
+        token: owner.token,
+        body: { questionId: 'not-a-uuid', points: 1, position: 1 },
+      });
+      expect([badBody.status, badBody.error!.code]).toEqual([400, 'VALIDATION_ERROR']);
+
+      // Fill the exam up to the cap of 200 directly, then add one more through the API.
+      await t.prisma.examQuestion.createMany({
+        data: Array.from({ length: 199 }, (_, i) => ({
+          examId: exam.id,
+          sourceQuestionId: q1.id,
+          points: 1,
+          position: i + 1,
+        })),
+      });
+      const over = await add(500);
+      expect([over.status, over.error!.code]).toEqual([400, 'MAX_QUESTIONS_REACHED']);
+      expect(await t.prisma.examQuestion.count({ where: { examId: exam.id } })).toBe(200);
+    });
   });
 
   describe('publish snapshot (D4)', () => {
@@ -268,6 +312,160 @@ describe('exams (baseline)', () => {
       expect(row!.status).toBe('PUBLISHED');
       expect(row!.questions).toHaveLength(1);
       expect(row!.questions[0].contentSnapshot).toBe('Song song');
+    });
+  });
+
+  describe('publish validation, snapshot fields, grading mode, release results (design 4.4, 5.5)', () => {
+    it('publishing snapshots type, answer key, explanation and options for every question type', async () => {
+      const sc = await createMixedScenario(t);
+      const rows = await t.prisma.examQuestion.findMany({
+        where: { examId: sc.examId },
+        orderBy: { position: 'asc' },
+      });
+      expect(rows.map((r) => r.typeSnapshot)).toEqual([
+        'MCQ',
+        'MCQ_MULTI',
+        'TRUE_FALSE',
+        'SHORT_ANSWER',
+        'FILL_BLANK',
+        'ESSAY',
+      ]);
+      expect(rows[3].correctAnswerSnapshot).toBe('Hà Nội, Ha Noi');
+      expect(rows[3].explanationSnapshot).toBe('Giai thich bi mat');
+      expect(rows[4].correctAnswerSnapshot).toBe('42');
+      expect((rows[1].optionsSnapshot as any[]).filter((o) => o.isCorrect)).toHaveLength(3);
+      expect(rows[2].optionsSnapshot as any[]).toHaveLength(2);
+      for (const r of rows.slice(3)) expect(r.optionsSnapshot).toBeNull();
+      for (const r of rows) expect(r.contentSnapshot).toBeTruthy();
+    });
+
+    it('an exam with a question whose source was deleted cannot be published: 400 INVALID_QUESTIONS naming the position, exam stays DRAFT with no snapshot', async () => {
+      const exam = await createExam(t, owner);
+      const keep = await createMcqQuestion(t, owner);
+      const gone = await createMcqQuestion(t, owner);
+      await addExamQuestion(t, owner, exam.id, keep.id, 0);
+      await addExamQuestion(t, owner, exam.id, gone.id, 1);
+      expect((await t.delete(`/questions/${gone.id}`, { token: owner.token })).status).toBe(204);
+
+      const res = await t.post(`/exams/${exam.id}/publish`, { token: owner.token });
+      expect([res.status, res.error!.code]).toEqual([400, 'INVALID_QUESTIONS']);
+      expect(res.error!.message).toContain('2');
+      const row = await t.prisma.exam.findUnique({ where: { id: exam.id }, include: { questions: true } });
+      expect(row!.status).toBe('DRAFT');
+      for (const q of row!.questions) expect(q.contentSnapshot).toBeNull();
+    });
+
+    it('a SHORT_ANSWER question without an answer key cannot be published (400 INVALID_QUESTIONS)', async () => {
+      const exam = await createExam(t, owner);
+      const created = await t.post('/questions', {
+        token: owner.token,
+        body: { type: 'SHORT_ANSWER', content: 'Khong co dap an' },
+      });
+      // Skip if question creation itself starts to reject this (a later package).
+      if (created.status !== 201) return;
+      await addExamQuestion(t, owner, exam.id, created.data.id, 0);
+      const res = await t.post(`/exams/${exam.id}/publish`, { token: owner.token });
+      expect([res.status, res.error!.code]).toEqual([400, 'INVALID_QUESTIONS']);
+    });
+
+    it('publish error codes: no questions is EXAM_HAS_NO_QUESTIONS; a second publish, an edit and a question change are EXAM_NOT_DRAFT', async () => {
+      const empty = await createExam(t, owner);
+      const none = await t.post(`/exams/${empty.id}/publish`, { token: owner.token });
+      expect([none.status, none.error!.code]).toEqual([400, 'EXAM_HAS_NO_QUESTIONS']);
+
+      const exam = await createExam(t, owner);
+      const q = await createMcqQuestion(t, owner);
+      const eq = await addExamQuestion(t, owner, exam.id, q.id, 0);
+      await publishExam(t, owner, exam.id);
+      const attempts = [
+        await t.post(`/exams/${exam.id}/publish`, { token: owner.token }),
+        await t.patch(`/exams/${exam.id}`, { token: owner.token, body: { title: 'Moi' } }),
+        await t.post(`/exams/${exam.id}/questions`, {
+          token: owner.token,
+          body: { questionId: q.id, points: 1, position: 5 },
+        }),
+        await t.delete(`/exams/${exam.id}/questions/${eq.id}`, { token: owner.token }),
+      ];
+      for (const res of attempts) {
+        expect([res.status, res.error!.code]).toEqual([400, 'EXAM_NOT_DRAFT']);
+      }
+    });
+
+    it('concurrency: a question added while the exam is being published is either snapshotted or refused, never left without a snapshot', async () => {
+      for (let round = 0; round < 5; round++) {
+        const exam = await createExam(t, owner);
+        const q1 = await createMcqQuestion(t, owner);
+        const q2 = await createMcqQuestion(t, owner);
+        await addExamQuestion(t, owner, exam.id, q1.id, 0);
+        const [publish, add] = await Promise.all([
+          t.post(`/exams/${exam.id}/publish`, { token: owner.token }),
+          t.post(`/exams/${exam.id}/questions`, {
+            token: owner.token,
+            body: { questionId: q2.id, points: 1, position: 1 },
+          }),
+        ]);
+        expect(publish.status).toBe(200);
+        expect([201, 400]).toContain(add.status);
+        const rows = await t.prisma.examQuestion.findMany({ where: { examId: exam.id } });
+        expect(rows).toHaveLength(add.status === 201 ? 2 : 1);
+        for (const r of rows) {
+          expect(r.contentSnapshot).not.toBeNull();
+          expect(r.typeSnapshot).toBe('MCQ');
+        }
+      }
+    });
+
+    it('gradingMode and allowFileSubmission: defaults, set on create, changed in DRAFT, read-only after publish (G7-BR-02)', async () => {
+      const plain = await createExam(t, owner);
+      expect(plain).toMatchObject({ gradingMode: 'ALL_OR_NOTHING', allowFileSubmission: false });
+
+      const exam = await createExam(t, owner, { gradingMode: 'PARTIAL', allowFileSubmission: true });
+      expect(exam).toMatchObject({ gradingMode: 'PARTIAL', allowFileSubmission: true });
+      const back = await t.patch(`/exams/${exam.id}`, {
+        token: owner.token,
+        body: { gradingMode: 'ALL_OR_NOTHING' },
+      });
+      expect(back.status).toBe(200);
+      expect(back.data.gradingMode).toBe('ALL_OR_NOTHING');
+
+      const invalid = await t.post('/exams', {
+        token: owner.token,
+        body: { title: 'X', durationSeconds: 600, gradingMode: 'HALF' },
+      });
+      expect([invalid.status, invalid.error!.code]).toEqual([400, 'VALIDATION_ERROR']);
+
+      const q = await createMcqQuestion(t, owner);
+      await addExamQuestion(t, owner, exam.id, q.id, 0);
+      await publishExam(t, owner, exam.id);
+      const after = await t.patch(`/exams/${exam.id}`, { token: owner.token, body: { gradingMode: 'PARTIAL' } });
+      expect([after.status, after.error!.code]).toEqual([400, 'EXAM_NOT_DRAFT']);
+      expect((await t.prisma.exam.findUnique({ where: { id: exam.id } }))!.gradingMode).toBe('ALL_OR_NOTHING');
+    });
+
+    it('release-results: body is validated, the response is {id, resultsReleased}, repeating it is harmless, and only the owner may call it', async () => {
+      const exam = await createExam(t, owner);
+      const url = `/exams/${exam.id}/release-results`;
+      for (const body of [{}, { release: 'yes' }, { release: true, extra: 1 }]) {
+        const res = await t.patch(url, { token: owner.token, body });
+        expect([res.status, res.error!.code]).toEqual([400, 'VALIDATION_ERROR']);
+      }
+      expect((await t.patch(url, { token: otherTeacher.token, body: { release: true } })).status).toBe(403);
+      expect((await t.prisma.exam.findUnique({ where: { id: exam.id } }))!.resultsReleased).toBe(false);
+
+      for (let i = 0; i < 2; i++) {
+        const res = await t.patch(url, { token: owner.token, body: { release: true } });
+        expect(res.status).toBe(200);
+        expect(res.data).toEqual({ id: exam.id, resultsReleased: true });
+      }
+      const off = await t.patch(url, { token: owner.token, body: { release: false } });
+      expect(off.data).toEqual({ id: exam.id, resultsReleased: false });
+      expect((await t.prisma.exam.findUnique({ where: { id: exam.id } }))!.resultsReleased).toBe(false);
+    });
+
+    it('regrade is refused for a DRAFT exam with 400 EXAM_NOT_PUBLISHED', async () => {
+      const exam = await createExam(t, owner);
+      const res = await t.post(`/exams/${exam.id}/regrade`, { token: owner.token });
+      expect([res.status, res.error!.code]).toEqual([400, 'EXAM_NOT_PUBLISHED']);
     });
   });
 

@@ -6,7 +6,7 @@
 - Collaboration mode: B (subagents, orchestrator as bridge)
 - Spec: all 61 specs under `docs/features/`, plus `docs/FEATURE_GAPS.md`
 - Started: 2026-11-12
-- Current phase: Phase 2 — consolidated design
+- Current phase: Phase 3 — implementation, Package 0b next
 
 ## Execution policy (user, 2026-11-12)
 
@@ -50,21 +50,40 @@ and gaps no spec defines (A-GAP-04/05, B-GAP-06, C-GAP-06/07, H-GAP-04).
 
 ### T1: Consolidated technical design
 
-- Objective: one design covering every in-scope item, with a single schema migration, an endpoint map, cross-spec conflicts resolved, and work packages with disjoint file ownership.
 - Assigned agent: architect
-- Dependencies: none
-- Expected output: `docs/work/20261112-implement-missing-features/design.md`
-- Status: in_progress
+- Expected output: `design.md`
+- Status: done (sections 1–6; sections 7–9 not written, see decisions.md D11)
+- Verification evidence: orchestrator read all 1,306 lines. Six BLOCKING findings ruled in D9.
 
-### T2: Test infrastructure and spec risk review
+### T2: Test infrastructure
 
-- Objective: a working e2e harness against an isolated `lumi_test` database, and a review of the specs for contradictions that would make acceptance criteria untestable.
 - Assigned agent: qa-engineer
-- Dependencies: none
-- Expected output: `apps/api/test/**` harness + smoke test, `test-plan.md`, review returned as message
-- Status: in_progress
+- Status: done for the harness and baseline tests; test-plan.md and spec review not delivered (D11)
+- Verification evidence: `npm run test:e2e:api` on 2026-11-12 21:15 — 6 suites, 110 passed, 28 todo, 0 failed, against `lumi_test`.
 
-### T3+: Implementation work packages — defined after T1
+### Implementation packages (one agent at a time, in this order)
+
+Each package ends with `npm run build:api`, `npm run test:api`, `npm run test:e2e:api` (and `npm run build:web` for web packages).
+
+| ID | Package | Scope (design.md sections) | Status |
+|---|---|---|---|
+| P0a | Core: migration, common infra, grading engine, attempt lifecycle, attempts + publish/regrade hardening | 2, 3.1–3.6, 4.5 (attempt routes except files), 5.1–5.5 | done — orchestrator reran 2026-11-13: build pass; unit 111/111; e2e 151 pass, 11 todo, 0 fail; migration has no destructive SQL; lumi_dev users 3→3. 13 deviations in handoff, accepted (see D12). Web app out of step until W5. |
+| P0b | Platform: storage, mail, notifications facade + dedupe, scheduler, config, docker-compose, student-accounts, question validation/selection, create-admin | 3.7–3.13 | done — orchestrator verified 2026-11-13: build pass; unit 120/120; e2e 151 pass, 11 todo, 0 fail. 4 deviations accepted (in-memory shuffle, isPublishableQuestion wrapper, async configureApp, jest transform update). Handoff: `p0b-handoff.md` |
+| B1 | Auth + admin + teacher-created students (A1 fixes, A3 API, A6, A7) | 4.1, 5.12 | pending |
+| B2 | Classrooms: announcements, dashboard, progress, import/export, access fixes (B5, B7, B8, B10) | 4.2, 5.6 | pending |
+| B3 | Question bank: uploads, import/export incl. .docx, groups, random (C6, C12, C13) | 4.3 | pending |
+| B4 | Exams + assignments: window validation, archive, preview, inline, generate, results export, assignment update/targets/submissions/attachments (D6–D11, F3, F4, F6, F9, G9/F10) | 4.4, 5.5, 5.7, 5.8, 5.11 | pending |
+| B5 | Attempts extras: submission files, manual grading route (F7, F8) | 4.5, 5.4, 5.11 | pending |
+| B6 | Analytics + notifications: export, access fixes, triggers wired, email fan-out, reminders (H8, J1, J4, J5) | 4.6, 5.9, 5.10 | pending |
+| W1 | Web: api client, auth pages (register fix, forgot/reset), admin, profile, sidebar | — | pending |
+| W2 | Web: classrooms (dashboard, progress, announcements, import/export, create students) | — | pending |
+| W3 | Web: question bank (image upload, import/export, groups) | — | pending |
+| W4 | Web: exams + assignments (window pickers, preview, inline, generate, archive, regrade, targets, attachments, tracking, hide results, export) | — | pending |
+| W5 | Web: take-exam (all question types, access code, files, retry), results/review/manual grading, my-results | — | pending |
+| W6 | Web: analytics (ranking, student chart, export), notifications | — | pending |
+| V1 | QA: test plan, new e2e tests, verification report | — | pending |
+| V2 | Independent review | — | pending |
+| DOC | Specs (BA) and durable docs (technical writer) | — | pending |
 
 ## Phase gates
 

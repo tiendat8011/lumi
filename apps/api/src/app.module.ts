@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { DatabaseModule } from './database/database.module';
@@ -11,6 +12,9 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { AttemptsModule } from './modules/attempts/attempts.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { MailModule } from './modules/mail/mail.module';
+import { UsersModule } from './modules/users/users.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { appConfig } from './config/app.config';
@@ -21,6 +25,7 @@ import { appConfig } from './config/app.config';
       isGlobal: true,
       load: [appConfig],
     }),
+    ScheduleModule.forRoot(),
     DatabaseModule,
     AuthModule,
     ClassroomsModule,
@@ -30,6 +35,9 @@ import { appConfig } from './config/app.config';
     AttemptsModule,
     AnalyticsModule,
     NotificationsModule,
+    StorageModule,
+    MailModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [

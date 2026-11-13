@@ -205,6 +205,20 @@ export function saveAnswer(
   });
 }
 
+/** Saves an answer with any payload shape: {selectedOptionId} | {selectedOptionIds} | {text}. */
+export function saveAnswerBody(
+  t: TestApp,
+  student: Actor,
+  attemptId: string,
+  examQuestionId: string,
+  payload: Record<string, unknown>,
+) {
+  return t.post(`/attempts/${attemptId}/answer`, {
+    token: student.token,
+    body: { examQuestionId, ...payload },
+  });
+}
+
 export function submitAttempt(t: TestApp, student: Actor, attemptId: string) {
   return t.post(`/attempts/${attemptId}/submit`, { token: student.token });
 }
@@ -261,4 +275,89 @@ export async function createExamScenario(
   });
 
   return { teacher, student, classroom, exam, assignment, questions };
+}
+
+export interface MixedScenario {
+  teacher: Actor;
+  student: Actor;
+  classroom: { id: string; joinCode: string };
+  examId: string;
+  assignment: { id: string };
+  /** Exam question ids and option ids, keyed by question type. */
+  mcq: { eqId: string; correct: string; wrong: string };
+  multi: { eqId: string; correct: string[]; wrong: string[] };
+  trueFalse: { eqId: string; correct: string; wrong: string };
+  short: { eqId: string };
+  fill: { eqId: string };
+  essay: { eqId: string };
+}
+
+/**
+ * A published exam with one question of each type, 1 point each unless
+ * `points` says otherwise, in the order MCQ, MCQ_MULTI (3 correct of 4),
+ * TRUE_FALSE, SHORT_ANSWER ("Hà Nội, Ha Noi"), FILL_BLANK ("42"), ESSAY.
+ */
+export async function createMixedScenario(
+  t: TestApp,
+  opts: Partial<{ exam: Record<string, unknown>; points: number[] }> = {},
+): Promise<MixedScenario> {
+  const teacher = await createTeacher(t);
+  const student = await createStudent(t);
+  const classroom = await createClassroom(t, teacher);
+  await joinClassroom(t, student, classroom.joinCode);
+  const draft = await createExam(t, teacher, opts.exam ?? {});
+
+  const opt = (content: string, isCorrect: boolean, position: number) => ({
+    content,
+    isCorrect,
+    position,
+  });
+  const sources = [
+    await createMcqQuestion(t, teacher, { correctIndex: 1 }),
+    await createQuestion(t, teacher, {
+      type: 'MCQ_MULTI',
+      content: unique('Nhieu dap an '),
+      options: [opt('A', true, 0), opt('B', true, 1), opt('C', true, 2), opt('D', false, 3)],
+    }),
+    await createQuestion(t, teacher, {
+      type: 'TRUE_FALSE',
+      content: unique('Dung sai '),
+      options: [opt('Dung', true, 0), opt('Sai', false, 1)],
+    }),
+    await createQuestion(t, teacher, {
+      type: 'SHORT_ANSWER',
+      content: unique('Thu do '),
+      correctAnswer: 'Hà Nội, Ha Noi',
+      explanation: 'Giai thich bi mat',
+    }),
+    await createQuestion(t, teacher, {
+      type: 'FILL_BLANK',
+      content: unique('Dien so '),
+      correctAnswer: '42',
+    }),
+    await createQuestion(t, teacher, { type: 'ESSAY', content: unique('Tu luan ') }),
+  ];
+  const eqIds: string[] = [];
+  for (let i = 0; i < sources.length; i++) {
+    const eq = await addExamQuestion(t, teacher, draft.id, sources[i].id, i, opts.points?.[i] ?? 1);
+    eqIds.push(eq.id);
+  }
+  await publishExam(t, teacher, draft.id);
+  const assignment = await assignExam(t, teacher, draft.id, classroom.id);
+
+  const ids = (i: number, correct: boolean) =>
+    sources[i].options.filter((o) => o.isCorrect === correct).map((o) => o.id);
+  return {
+    teacher,
+    student,
+    classroom,
+    examId: draft.id,
+    assignment,
+    mcq: { eqId: eqIds[0], correct: ids(0, true)[0], wrong: ids(0, false)[0] },
+    multi: { eqId: eqIds[1], correct: ids(1, true), wrong: ids(1, false) },
+    trueFalse: { eqId: eqIds[2], correct: ids(2, true)[0], wrong: ids(2, false)[0] },
+    short: { eqId: eqIds[3] },
+    fill: { eqId: eqIds[4] },
+    essay: { eqId: eqIds[5] },
+  };
 }

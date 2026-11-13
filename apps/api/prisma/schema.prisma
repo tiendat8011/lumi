@@ -22,6 +22,10 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  isActive                  Boolean @default(true) @map("is_active")
+  emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")
+  createdByTeacherId        String? @map("created_by_teacher_id") @db.Uuid
+
   refreshTokens      RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   ownedClassrooms    Classroom[]
@@ -31,7 +35,12 @@ model User {
   attempts           ExamAttempt[]
   notifications      Notification[]
   ownedCategories    QuestionCategory[]
+  createdByTeacher   User?              @relation("CreatedStudents", fields: [createdByTeacherId], references: [id], onDelete: SetNull)
+  createdStudents    User[]             @relation("CreatedStudents")
+  questionGroups     QuestionGroup[]
+  assignmentTargets  AssignmentTarget[]
 
+  @@index([createdByTeacherId])
   @@map("users")
 }
 
@@ -101,6 +110,7 @@ model Announcement {
 
   classroom Classroom @relation(fields: [classroomId], references: [id], onDelete: Cascade)
 
+  @@index([classroomId, createdAt])
   @@map("announcements")
 }
 
@@ -144,6 +154,7 @@ model Question {
   examQuestions ExamQuestion[]
   groupItems    QuestionGroupItem[]
 
+  @@index([ownerId])
   @@map("questions")
 }
 
@@ -165,9 +176,14 @@ model QuestionGroup {
   id      String @id @default(uuid()) @db.Uuid
   ownerId String @map("owner_id") @db.Uuid
   name    String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
 
+  owner User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   items QuestionGroupItem[]
 
+  @@index([ownerId])
   @@map("question_groups")
 }
 
@@ -211,6 +227,7 @@ model Exam {
   shuffleOptions        Boolean     @default(false) @map("shuffle_options")
   accessCode            String?     @map("access_code")
   gradingMode           GradingMode @default(ALL_OR_NOTHING) @map("grading_mode")
+  allowFileSubmission   Boolean     @default(false) @map("allow_file_submission")
   createdAt             DateTime    @default(now()) @map("created_at")
   updatedAt             DateTime    @updatedAt @map("updated_at")
 
@@ -230,6 +247,10 @@ model ExamQuestion {
   position         Int
   contentSnapshot  String? @map("content_snapshot")
   optionsSnapshot  Json?   @map("options_snapshot")
+  typeSnapshot          String? @map("type_snapshot")
+  correctAnswerSnapshot String? @map("correct_answer_snapshot")
+  imageUrlSnapshot      String? @map("image_url_snapshot")
+  explanationSnapshot   String? @map("explanation_snapshot")
 
   exam           Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
   sourceQuestion Question? @relation(fields: [sourceQuestionId], references: [id], onDelete: SetNull)
@@ -252,12 +273,17 @@ model Assignment {
   dueAt       DateTime?        @map("due_at")
   status      AssignmentStatus @default(ACTIVE)
   hideResults Boolean          @default(false) @map("hide_results")
+  reminderIntervals Json?      @default("[\"24h\",\"1h\"]") @map("reminder_intervals")
 
-  exam      Exam          @relation(fields: [examId], references: [id])
-  classroom Classroom     @relation(fields: [classroomId], references: [id])
-  attempts  ExamAttempt[]
+  exam              Exam                   @relation(fields: [examId], references: [id])
+  classroom         Classroom              @relation(fields: [classroomId], references: [id])
+  attempts          ExamAttempt[]
+  targets           AssignmentTarget[]
+  attachments       AssignmentAttachment[]
+  deadlineReminders DeadlineReminder[]
 
   @@unique([examId, classroomId])
+  @@index([classroomId])
   @@map("assignments")
 }
 
@@ -287,9 +313,14 @@ model ExamAttempt {
   assignment Assignment? @relation(fields: [assignmentId], references: [id])
   answers    Answer[]
   exitLogs   ExamExitLog[]
+  submissionFiles SubmissionFile[]
 
+  // A partial unique index, exam_attempts_one_in_progress (exam_id, student_id)
+  // WHERE status = 'IN_PROGRESS', exists in the database. Prisma cannot express
+  // it; it is created by hand in the missing_features migration.
   @@index([examId, studentId])
   @@index([studentId])
+  @@index([assignmentId])
   @@map("exam_attempts")
 }
 
@@ -300,6 +331,8 @@ model Answer {
   answerPayload  Json     @map("answer_payload")
   feedback       String?
   savedAt        DateTime @default(now()) @map("saved_at")
+  earnedPoints   Decimal? @map("earned_points") @db.Decimal(10, 4)
+  manuallyGraded Boolean  @default(false) @map("manually_graded")
 
   attempt      ExamAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   examQuestion ExamQuestion @relation(fields: [examQuestionId], references: [id])
@@ -328,6 +361,7 @@ enum NotificationType {
   GRADING_COMPLETE
   RESULTS_RELEASED
   ANNOUNCEMENT
+  DEADLINE_REMINDER
 }
 
 model Notification {
@@ -339,9 +373,72 @@ model Notification {
   link      String?
   read      Boolean          @default(false)
   createdAt DateTime         @default(now()) @map("created_at")
+  dedupeKey String?          @map("dedupe_key")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, dedupeKey])
   @@index([userId, read])
+  @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// D11: assignment restricted to specific students. No rows = whole classroom.
+model AssignmentTarget {
+  id           String @id @default(uuid()) @db.Uuid
+  assignmentId String @map("assignment_id") @db.Uuid
+  studentId    String @map("student_id") @db.Uuid
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId])
+  @@map("assignment_targets")
+}
+
+// F6: files a teacher attaches to an assignment
+model AssignmentAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  assignmentId String   @map("assignment_id") @db.Uuid
+  filename     String
+  storageKey   String   @unique @map("storage_key")
+  size         Int
+  mimeType     String   @map("mime_type")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@map("assignment_attachments")
+}
+
+// F7: files a student submits with an attempt
+model SubmissionFile {
+  id           String   @id @default(uuid()) @db.Uuid
+  attemptId    String   @map("attempt_id") @db.Uuid
+  storageKey   String   @unique @map("storage_key")
+  originalName String   @map("original_name")
+  mimeType     String   @map("mime_type")
+  sizeBytes    Int      @map("size_bytes")
+  uploadedAt   DateTime @default(now()) @map("uploaded_at")
+
+  attempt ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, originalName])
+  @@map("submission_files")
+}
+
+// J5: one row per assignment and reminder interval already sent
+model DeadlineReminder {
+  id             String   @id @default(uuid()) @db.Uuid
+  assignmentId   String   @map("assignment_id") @db.Uuid
+  interval       String
+  sentAt         DateTime @default(now()) @map("sent_at")
+  recipientCount Int      @map("recipient_count")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, interval])
+  @@map("deadline_reminders")
 }

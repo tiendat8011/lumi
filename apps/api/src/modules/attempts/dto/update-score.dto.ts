@@ -1,4 +1,11 @@
-import { IsNumber, Min, Max, IsOptional, IsString } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateScoreDto {
   @IsNumber()
@@ -6,7 +13,9 @@ export class UpdateScoreDto {
   @Max(10)
   score!: number;
 
+  /** Accepted and validated; there is no column to store it yet. */
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   reason?: string;
 }

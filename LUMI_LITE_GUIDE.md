@@ -18,7 +18,7 @@ Xây dựng một phiên bản LMS/online examination gọn nhẹ, ưu tiên ho�
 
 1. **Authentication & user**
    - Đăng ký/đăng nhập/đăng xuất.
-   - JWT access token và refresh token.
+   - JWT access token và refresh token
    - Hồ sơ người dùng cơ bản.
    - Phân quyền theo role.
 

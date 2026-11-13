@@ -14,7 +14,7 @@
         "tsconfig": "<rootDir>/tsconfig.json"
       }
     ],
-    "node_modules/@nestjs/(jwt|passport)/.+\\.js$": "<rootDir>/support/esm-to-cjs-transformer.js"
+    "node_modules/@nestjs/(jwt|passport|schedule)/.+\\.js$": "<rootDir>/support/esm-to-cjs-transformer.js"
   },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1"
@@ -26,6 +26,6 @@
   "maxWorkers": 1,
   "testTimeout": 30000,
   "transformIgnorePatterns": [
-    "/node_modules/(?!@nestjs/(jwt|passport)/)"
+    "/node_modules/(?!@nestjs/(jwt|passport|schedule)/)"
   ]
 }
