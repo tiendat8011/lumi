@@ -184,3 +184,33 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  .tone-blue {
+    background-color: #eff6ff;
+    color: #2563eb;
+  }
+  .tone-violet {
+    background-color: #eef2ff;
+    color: #4f46e5;
+  }
+  .tone-orange {
+    background-color: #fff7ed;
+    color: #ea580c;
+  }
+  .tone-cyan {
+    background-color: #ecfeff;
+    color: #0891b2;
+  }
+  .tone-green {
+    background-color: #ecfdf5;
+    color: #059669;
+  }
+  .dark .tone-blue,
+  .dark .tone-violet,
+  .dark .tone-orange,
+  .dark .tone-cyan,
+  .dark .tone-green {
+    background-color: var(--muted);
+  }
+}

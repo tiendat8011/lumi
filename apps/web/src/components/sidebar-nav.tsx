@@ -5,31 +5,54 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
 import {
-  LayoutDashboard,
+  Home,
   Users,
   FileQuestion,
-  ClipboardList,
-  Send,
-  PenTool,
+  ClipboardCheck,
+  FileCheck2,
+  PencilLine,
   BarChart3,
   TrendingUp,
+  Target,
 } from 'lucide-react';
 
 const teacherLinks = [
-  { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Tổng quan', icon: Home },
   { href: '/dashboard/classrooms', label: 'Lớp học', icon: Users },
-  { href: '/dashboard/questions', label: 'Ngân hàng câu hỏi', icon: FileQuestion },
-  { href: '/dashboard/exams', label: 'Đề thi', icon: ClipboardList },
-  { href: '/dashboard/assignments', label: 'Giao bài', icon: Send },
-  { href: '/dashboard/results', label: 'Kết quả', icon: BarChart3 },
-  { href: '/dashboard/analytics', label: 'Thống kê', icon: TrendingUp },
+  {
+    href: '/dashboard/questions',
+    label: 'Ngân hàng câu hỏi',
+    icon: FileQuestion,
+  },
+  {
+    href: '/dashboard/exams',
+    label: 'Bài kiểm tra',
+    icon: ClipboardCheck,
+  },
+  { href: '/dashboard/assignments', label: 'Bài tập', icon: FileCheck2 },
+  { href: '/dashboard/grading', label: 'Chấm bài', icon: PencilLine },
+  { href: '/dashboard/analytics', label: 'Phân tích', icon: BarChart3 },
 ];
 
 const studentLinks = [
-  { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
-  { href: '/dashboard/classrooms', label: 'Lớp học', icon: Users },
-  { href: '/dashboard/assignments', label: 'Bài thi', icon: ClipboardList },
-  { href: '/dashboard/my-results', label: 'Kết quả', icon: BarChart3 },
+  { href: '/dashboard', label: 'Tổng quan', icon: Home },
+  {
+    href: '/dashboard/classrooms',
+    label: 'Lớp học của tôi',
+    icon: Users,
+  },
+  { href: '/dashboard/assignments', label: 'Bài tập', icon: FileCheck2 },
+  {
+    href: '/dashboard/exams',
+    label: 'Bài kiểm tra',
+    icon: ClipboardCheck,
+  },
+  { href: '/dashboard/my-results', label: 'Kết quả', icon: TrendingUp },
+  {
+    href: '/dashboard/analytics',
+    label: 'Tiến độ học tập',
+    icon: Target,
+  },
 ];
 
 export function SidebarNav() {

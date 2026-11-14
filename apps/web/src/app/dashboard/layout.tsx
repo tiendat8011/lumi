@@ -5,10 +5,16 @@ import Link from 'next/link';
 import { ProtectedRoute } from '@/components/protected-route';
 import { SidebarNav } from '@/components/sidebar-nav';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Logo } from '@/components/ui/logo';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,17 +25,22 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Menu, LogOut, Bell, User } from 'lucide-react';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const initials = user?.displayName
-    ?.split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || '?';
+  const initials =
+    user?.displayName
+      ?.split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || '?';
 
   useEffect(() => {
     if (!user) return;
@@ -50,17 +61,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Desktop sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-sidebar-border bg-sidebar md:flex md:flex-col">
           <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-            <span className="text-lg font-bold text-primary">Lumi Lite</span>
+            <Logo />
           </div>
           <div className="flex-1 overflow-y-auto">
             <SidebarNav />
           </div>
           <div className="border-t border-sidebar-border p-3">
-            <div className="flex items-center gap-2 text-sm text-sidebar-foreground/70">
-              <Avatar className="h-7 w-7">
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            <div className="flex items-center gap-2 text-sm">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="text-xs">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
-              <span className="truncate">{user?.displayName}</span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold text-sidebar-foreground">
+                  {user?.displayName}
+                </p>
+                <p className="truncate text-[10px] text-sidebar-foreground/60">
+                  {user?.email}
+                </p>
+              </div>
             </div>
           </div>
         </aside>
@@ -71,13 +91,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <header className="flex h-14 shrink-0 items-center gap-3 border-b px-4">
             {/* Mobile menu */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-              <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden" />}>
+              <SheetTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="md:hidden"
+                  />
+                }
+              >
                 <Menu className="h-5 w-5" />
               </SheetTrigger>
-              <SheetContent side="left" className="w-64 p-0 bg-sidebar">
-                <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetContent
+                side="left"
+                className="w-64 bg-sidebar p-0"
+              >
+                <SheetTitle className="sr-only">
+                  Navigation
+                </SheetTitle>
                 <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
-                  <span className="text-lg font-bold text-primary">Lumi Lite</span>
+                  <Logo />
                 </div>
                 <div onClick={() => setMobileOpen(false)}>
                   <SidebarNav />
@@ -88,7 +121,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="flex-1" />
 
             <Link href="/dashboard/notifications">
-              <Button variant="ghost" size="icon" className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative"
+              >
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground">
@@ -100,15 +137,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <ThemeToggle />
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="rounded-full" />}>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                  />
+                }
+              >
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <div className="px-2 py-1.5">
-                  <p className="text-sm font-medium">{user?.displayName}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  <p className="text-sm font-medium">
+                    {user?.displayName}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {user?.email}
+                  </p>
                 </div>
                 <DropdownMenuSeparator />
                 <Link href="/dashboard/profile">
@@ -117,7 +166,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     Hồ sơ
                   </DropdownMenuItem>
                 </Link>
-                <DropdownMenuItem onClick={logout} className="text-destructive">
+                <DropdownMenuItem
+                  onClick={logout}
+                  className="text-destructive"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   Đăng xuất
                 </DropdownMenuItem>
@@ -126,7 +178,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </header>
 
           {/* Content */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+          <main className="flex-1 overflow-y-auto p-4 md:p-6">
+            {children}
+          </main>
         </div>
       </div>
     </ProtectedRoute>
