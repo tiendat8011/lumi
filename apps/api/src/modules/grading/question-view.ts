@@ -17,6 +17,8 @@ export type ExamQuestionRow = {
   typeSnapshot: string | null;
   correctAnswerSnapshot: string | null;
   imageUrlSnapshot: string | null;
+  audioUrlSnapshot: string | null;
+  passageSnapshot: string | null;
 };
 
 export type StudentQuestion = {
@@ -26,12 +28,25 @@ export type StudentQuestion = {
   questionType: QuestionType;
   content: string | null;
   imageUrl: string | null;
+  audioUrl: string | null;
+  passage: string | null;
   /** Null for question types without options. Never carries isCorrect. */
   options: { id: string; content: string }[] | null;
 };
 
-const OPTION_TYPES: QuestionType[] = ['MCQ', 'MCQ_MULTI', 'TRUE_FALSE'];
-const SHUFFLED_TYPES: QuestionType[] = ['MCQ', 'MCQ_MULTI'];
+const OPTION_TYPES: QuestionType[] = [
+  'MCQ',
+  'MCQ_MULTI',
+  'TRUE_FALSE',
+  'LISTENING_MCQ',
+  'READING_MCQ',
+];
+const SHUFFLED_TYPES: QuestionType[] = [
+  'MCQ',
+  'MCQ_MULTI',
+  'LISTENING_MCQ',
+  'READING_MCQ',
+];
 
 function shuffleKey(attemptId: string, optionId: string): string {
   return createHash('sha256').update(`${attemptId}:${optionId}`).digest('hex');
@@ -83,6 +98,8 @@ export function toStudentQuestion(
     questionType: type,
     content: eq.contentSnapshot,
     imageUrl: eq.imageUrlSnapshot,
+    audioUrl: eq.audioUrlSnapshot,
+    passage: eq.passageSnapshot,
     options: visibleOptions,
   };
 }

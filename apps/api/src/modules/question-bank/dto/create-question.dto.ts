@@ -9,6 +9,7 @@ import {
   Min,
   IsEnum,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -31,6 +32,11 @@ export enum QuestionType {
   SHORT_ANSWER = 'SHORT_ANSWER',
   FILL_BLANK = 'FILL_BLANK',
   ESSAY = 'ESSAY',
+  LISTENING_MCQ = 'LISTENING_MCQ',
+  LISTENING_FILL = 'LISTENING_FILL',
+  READING_MCQ = 'READING_MCQ',
+  READING_FILL = 'READING_FILL',
+  SPEAKING = 'SPEAKING',
 }
 
 export enum DifficultyLevel {
@@ -66,6 +72,16 @@ export class CreateQuestionDto {
   @IsOptional()
   @IsString()
   correctAnswer?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  audioUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  passage?: string;
 
   @IsOptional()
   @IsArray()

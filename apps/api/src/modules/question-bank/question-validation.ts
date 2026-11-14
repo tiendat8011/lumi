@@ -10,9 +10,25 @@ export type ValidationResult = {
   errors: string[];
 };
 
-const OPTION_TYPES = ['MCQ', 'MCQ_MULTI', 'TRUE_FALSE'];
-const SINGLE_CORRECT_TYPES = ['MCQ', 'TRUE_FALSE'];
-const KEYED_TEXT_TYPES = ['SHORT_ANSWER', 'FILL_BLANK'];
+const OPTION_TYPES = [
+  'MCQ',
+  'MCQ_MULTI',
+  'TRUE_FALSE',
+  'LISTENING_MCQ',
+  'READING_MCQ',
+];
+const SINGLE_CORRECT_TYPES = [
+  'MCQ',
+  'TRUE_FALSE',
+  'LISTENING_MCQ',
+  'READING_MCQ',
+];
+const KEYED_TEXT_TYPES = [
+  'SHORT_ANSWER',
+  'FILL_BLANK',
+  'LISTENING_FILL',
+  'READING_FILL',
+];
 
 export function validateQuestionInput(dto: QuestionInput): ValidationResult {
   const errors: string[] = [];

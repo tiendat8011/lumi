@@ -443,7 +443,9 @@ export class AttemptsService {
 
     switch (type) {
       case 'MCQ':
-      case 'TRUE_FALSE': {
+      case 'TRUE_FALSE':
+      case 'LISTENING_MCQ':
+      case 'READING_MCQ': {
         if (dto.selectedOptionId === undefined) {
           throw invalidShape('Câu hỏi này cần trường selectedOptionId');
         }
@@ -460,13 +462,27 @@ export class AttemptsService {
       }
       case 'SHORT_ANSWER':
       case 'FILL_BLANK':
-      case 'ESSAY': {
+      case 'LISTENING_FILL':
+      case 'READING_FILL': {
         if (dto.text === undefined) {
           throw invalidShape('Câu hỏi này cần trường text');
         }
-        const max = type === 'ESSAY' ? ESSAY_TEXT_MAX : SHORT_TEXT_MAX;
-        if (dto.text.length > max) {
-          throw invalidShape(`Câu trả lời không được dài quá ${max} ký tự`);
+        if (dto.text.length > SHORT_TEXT_MAX) {
+          throw invalidShape(
+            `Câu trả lời không được dài quá ${SHORT_TEXT_MAX} ký tự`,
+          );
+        }
+        return { text: dto.text };
+      }
+      case 'ESSAY':
+      case 'SPEAKING': {
+        if (dto.text === undefined) {
+          throw invalidShape('Câu hỏi này cần trường text');
+        }
+        if (dto.text.length > ESSAY_TEXT_MAX) {
+          throw invalidShape(
+            `Câu trả lời không được dài quá ${ESSAY_TEXT_MAX} ký tự`,
+          );
         }
         return { text: dto.text };
       }
@@ -639,6 +655,8 @@ export class AttemptsService {
         questionType: type,
         content: eq.contentSnapshot,
         imageUrl: eq.imageUrlSnapshot,
+        audioUrl: eq.audioUrlSnapshot,
+        passage: eq.passageSnapshot,
         options: hasOptions
           ? sorted.map((o) => ({ id: o.id, content: o.content }))
           : null,

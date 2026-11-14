@@ -41,13 +41,24 @@ export class QuestionsService {
 
   async create(ownerId: string, dto: CreateQuestionDto) {
     const type = dto.type || 'MCQ';
-    const needsOptions = ['MCQ', 'MCQ_MULTI', 'TRUE_FALSE'].includes(type);
+    const needsOptions = [
+      'MCQ',
+      'MCQ_MULTI',
+      'TRUE_FALSE',
+      'LISTENING_MCQ',
+      'READING_MCQ',
+    ].includes(type);
 
     if (needsOptions) {
       if (!dto.options || dto.options.length < 2) {
         throw new BadRequestException('Options required for this question type');
       }
-      if (type === 'MCQ' || type === 'TRUE_FALSE') {
+      if (
+        type === 'MCQ' ||
+        type === 'TRUE_FALSE' ||
+        type === 'LISTENING_MCQ' ||
+        type === 'READING_MCQ'
+      ) {
         const correctCount = dto.options.filter((o) => o.isCorrect).length;
         if (correctCount !== 1) {
           throw new BadRequestException('Exactly one correct option required');
@@ -70,6 +81,8 @@ export class QuestionsService {
         difficulty: dto.difficulty,
         categoryId: dto.categoryId,
         imageUrl: dto.imageUrl,
+        audioUrl: dto.audioUrl,
+        passage: dto.passage,
         correctAnswer: dto.correctAnswer,
         ...(needsOptions && dto.options && {
           options: {
@@ -82,6 +95,86 @@ export class QuestionsService {
         }),
       },
       include: { options: { orderBy: { position: 'asc' } }, category: true },
+    });
+  }
+
+  async bulkCreate(ownerId: string, dtos: CreateQuestionDto[]) {
+    return this.prisma.$transaction(async (tx) => {
+      const created = [];
+      for (const dto of dtos) {
+        const type = dto.type || 'MCQ';
+        const needsOptions = [
+          'MCQ',
+          'MCQ_MULTI',
+          'TRUE_FALSE',
+          'LISTENING_MCQ',
+          'READING_MCQ',
+        ].includes(type);
+
+        if (needsOptions) {
+          if (!dto.options || dto.options.length < 2) {
+            throw new BadRequestException(
+              'Options required for this question type',
+            );
+          }
+          if (
+            type === 'MCQ' ||
+            type === 'TRUE_FALSE' ||
+            type === 'LISTENING_MCQ' ||
+            type === 'READING_MCQ'
+          ) {
+            const correctCount = dto.options.filter(
+              (o) => o.isCorrect,
+            ).length;
+            if (correctCount !== 1) {
+              throw new BadRequestException(
+                'Exactly one correct option required',
+              );
+            }
+          }
+          if (type === 'MCQ_MULTI') {
+            const correctCount = dto.options.filter(
+              (o) => o.isCorrect,
+            ).length;
+            if (correctCount < 1) {
+              throw new BadRequestException(
+                'At least one correct option required',
+              );
+            }
+          }
+        }
+
+        const question = await tx.question.create({
+          data: {
+            ownerId,
+            type,
+            content: dto.content,
+            explanation: dto.explanation,
+            difficulty: dto.difficulty,
+            categoryId: dto.categoryId,
+            imageUrl: dto.imageUrl,
+            audioUrl: dto.audioUrl,
+            passage: dto.passage,
+            correctAnswer: dto.correctAnswer,
+            ...(needsOptions &&
+              dto.options && {
+                options: {
+                  create: dto.options.map((o) => ({
+                    content: o.content,
+                    isCorrect: o.isCorrect,
+                    position: o.position,
+                  })),
+                },
+              }),
+          },
+          include: {
+            options: { orderBy: { position: 'asc' } },
+            category: true,
+          },
+        });
+        created.push(question);
+      }
+      return { count: created.length, questions: created };
     });
   }
 
@@ -134,7 +227,12 @@ export class QuestionsService {
 
     if (dto.options) {
       const type = question.type;
-      if (type === 'MCQ' || type === 'TRUE_FALSE') {
+      if (
+        type === 'MCQ' ||
+        type === 'TRUE_FALSE' ||
+        type === 'LISTENING_MCQ' ||
+        type === 'READING_MCQ'
+      ) {
         const correctCount = dto.options.filter((o) => o.isCorrect).length;
         if (correctCount !== 1) {
           throw new BadRequestException('Exactly one correct option required');
@@ -165,6 +263,8 @@ export class QuestionsService {
           ...(dto.difficulty !== undefined && { difficulty: dto.difficulty }),
           ...(dto.categoryId !== undefined && { categoryId: dto.categoryId }),
           ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
+          ...(dto.audioUrl !== undefined && { audioUrl: dto.audioUrl }),
+          ...(dto.passage !== undefined && { passage: dto.passage }),
           ...(dto.correctAnswer !== undefined && { correctAnswer: dto.correctAnswer }),
         },
         include: { options: { orderBy: { position: 'asc' } }, category: true },

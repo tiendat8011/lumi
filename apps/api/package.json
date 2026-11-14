@@ -21,7 +21,9 @@
     "create-admin": "ts-node prisma/create-admin.ts"
   },
   "dependencies": {
+    "@fastify/helmet": "^13.2.0",
     "@fastify/multipart": "^10.1.8",
+    "@fastify/rate-limit": "^11.2.2",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",

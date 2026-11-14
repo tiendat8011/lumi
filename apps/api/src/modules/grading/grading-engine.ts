@@ -16,6 +16,11 @@ export const QUESTION_TYPES = [
   'SHORT_ANSWER',
   'FILL_BLANK',
   'ESSAY',
+  'LISTENING_MCQ',
+  'LISTENING_FILL',
+  'READING_MCQ',
+  'READING_FILL',
+  'SPEAKING',
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 export type GradingMode = 'ALL_OR_NOTHING' | 'PARTIAL';
@@ -155,7 +160,9 @@ export function gradeAnswer(
 
   switch (type) {
     case 'MCQ':
-    case 'TRUE_FALSE': {
+    case 'TRUE_FALSE':
+    case 'LISTENING_MCQ':
+    case 'READING_MCQ': {
       const ids = selectedIds(payload);
       if (ids.length !== 1) return ZERO;
       const selected = options.find((o) => o.id === ids[0]);
@@ -185,7 +192,9 @@ export function gradeAnswer(
     }
 
     case 'SHORT_ANSWER':
-    case 'FILL_BLANK': {
+    case 'FILL_BLANK':
+    case 'LISTENING_FILL':
+    case 'READING_FILL': {
       const given = normalizeAnswerText(payload.text ?? '');
       if (given === '' || q.correctAnswer === null) return ZERO;
       const accepted = q.correctAnswer
@@ -196,6 +205,7 @@ export function gradeAnswer(
     }
 
     case 'ESSAY':
+    case 'SPEAKING':
       return (payload.text ?? '').trim() === '' ? ZERO : null;
   }
 }

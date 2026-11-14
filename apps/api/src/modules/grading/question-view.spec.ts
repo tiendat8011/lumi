@@ -26,6 +26,8 @@ function optionRow(
     })),
     correctAnswerSnapshot: 'bí mật',
     imageUrlSnapshot: '/uploads/images/x.png',
+    audioUrlSnapshot: null,
+    passageSnapshot: null,
     explanationSnapshot: 'Giải thích bí mật',
   };
 }
@@ -38,10 +40,12 @@ describe('toStudentQuestion', () => {
     const view = toStudentQuestion(optionRow('MCQ', 4), ATTEMPT_1, false);
     expect(Object.keys(view).sort()).toEqual(
       [
+        'audioUrl',
         'content',
         'id',
         'imageUrl',
         'options',
+        'passage',
         'points',
         'position',
         'questionType',

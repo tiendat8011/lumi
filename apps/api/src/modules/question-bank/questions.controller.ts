@@ -7,16 +7,21 @@ import {
   Param,
   Body,
   Query,
+  Req,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { FastifyRequest } from 'fastify';
 import { QuestionsService } from './questions.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
+import { BulkCreateQuestionsDto } from './dto/bulk-create-questions.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { readUpload } from '../storage/upload.util';
+import { parseDocx } from './docx-parser';
 
 @Controller('questions')
 @Roles('TEACHER')
@@ -45,6 +50,25 @@ export class QuestionsController {
     @CurrentUser('id') userId: string,
   ) {
     await this.questionsService.deleteCategory(id, userId);
+  }
+
+  // --- Import ---
+
+  @Post('parse-docx')
+  async parseDocxFile(@Req() req: FastifyRequest) {
+    const { buffer } = await readUpload(req, {
+      maxBytes: 10 * 1024 * 1024,
+      allowed: ['docx'],
+    });
+    return parseDocx(buffer);
+  }
+
+  @Post('bulk')
+  async bulkCreate(
+    @CurrentUser('id') userId: string,
+    @Body() dto: BulkCreateQuestionsDto,
+  ) {
+    return this.questionsService.bulkCreate(userId, dto.questions);
   }
 
   // --- Questions ---

@@ -9,6 +9,7 @@ import {
   Min,
   IsEnum,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DifficultyLevel } from './create-question.dto';
@@ -49,6 +50,16 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsString()
   correctAnswer?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  audioUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  passage?: string;
 
   @IsOptional()
   @IsArray()

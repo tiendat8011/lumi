@@ -144,6 +144,8 @@ model Question {
   difficulty   Difficulty?
   categoryId   String?     @map("category_id") @db.Uuid
   imageUrl     String?     @map("image_url")
+  audioUrl     String?     @map("audio_url")
+  passage      String?
   correctAnswer String?    @map("correct_answer")
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
@@ -250,6 +252,8 @@ model ExamQuestion {
   typeSnapshot          String? @map("type_snapshot")
   correctAnswerSnapshot String? @map("correct_answer_snapshot")
   imageUrlSnapshot      String? @map("image_url_snapshot")
+  audioUrlSnapshot      String? @map("audio_url_snapshot")
+  passageSnapshot       String? @map("passage_snapshot")
   explanationSnapshot   String? @map("explanation_snapshot")
 
   exam           Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)

@@ -25,12 +25,20 @@ import { validateQuestionInput } from '../question-bank/question-validation';
 /** Hard cap on questions per exam (design 4.4). */
 export const MAX_EXAM_QUESTIONS = 200;
 
-const OPTION_TYPES = ['MCQ', 'MCQ_MULTI', 'TRUE_FALSE'];
+const OPTION_TYPES = [
+  'MCQ',
+  'MCQ_MULTI',
+  'TRUE_FALSE',
+  'LISTENING_MCQ',
+  'READING_MCQ',
+];
 
 type SourceQuestion = {
   type: string;
   content: string;
   correctAnswer: string | null;
+  audioUrl: string | null;
+  passage: string | null;
   options: { isCorrect: boolean }[];
 };
 
@@ -334,6 +342,8 @@ export class ExamsService {
             typeSnapshot: source.type,
             correctAnswerSnapshot: source.correctAnswer,
             imageUrlSnapshot: source.imageUrl,
+            audioUrlSnapshot: source.audioUrl,
+            passageSnapshot: source.passage,
             explanationSnapshot: source.explanation,
           },
         });

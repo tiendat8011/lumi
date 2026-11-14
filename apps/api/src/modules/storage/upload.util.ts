@@ -24,6 +24,11 @@ const EXT_TO_MIME: Record<string, string[]> = {
   ],
   csv: ['text/csv', 'application/csv', 'text/plain'],
   json: ['application/json', 'text/plain'],
+  mp3: ['audio/mpeg', 'audio/mp3'],
+  wav: ['audio/wav', 'audio/x-wav', 'audio/wave'],
+  ogg: ['audio/ogg', 'application/ogg'],
+  m4a: ['audio/mp4', 'audio/x-m4a', 'audio/m4a'],
+  webm: ['audio/webm', 'video/webm'],
 };
 
 // Leading bytes for common file types.
@@ -35,6 +40,10 @@ const MAGIC: [string, Buffer][] = [
   ['pdf', Buffer.from([0x25, 0x50, 0x44, 0x46])],
   // ZIP-based Office formats (docx, xlsx, pptx)
   ['docx', Buffer.from([0x50, 0x4b, 0x03, 0x04])],
+  // Audio formats
+  ['wav', Buffer.from([0x52, 0x49, 0x46, 0x46])], // RIFF
+  ['ogg', Buffer.from([0x4f, 0x67, 0x67, 0x53])], // OggS
+  // mp3, m4a, webm: magic byte check skipped — rely on MIME + extension
 ];
 
 function extFromFilename(filename: string): string {
