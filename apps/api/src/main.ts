@@ -9,7 +9,11 @@ import { configureApp } from './common/configure-app';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ logger: true }),
+    new FastifyAdapter({
+      logger: true,
+      // Trust proxy headers (Railway, nginx, Cloudflare) for correct IP in rate limiting
+      trustProxy: process.env.NODE_ENV === 'production',
+    }),
   );
 
   await configureApp(app);

@@ -1,7 +1,9 @@
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationError } from 'class-validator';
 import multipart from '@fastify/multipart';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import { HttpExceptionFilter } from './filters/http-exception.filter';
 import { TransformInterceptor } from './interceptors/transform.interceptor';
 
@@ -35,11 +37,30 @@ export function createValidationPipe(): ValidationPipe {
 export async function configureApp(
   app: NestFastifyApplication,
 ): Promise<void> {
-  await app.register(multipart, {
-    limits: { fileSize: 10 * 1024 * 1024 },
+  const logger = new Logger('ConfigureApp');
+
+  // Security: HTTP headers (XSS, clickjacking, MIME sniffing, etc.)
+  await app.register(helmet, {
+    contentSecurityPolicy: false, // handled by frontend/nginx
   });
+
+  // Security: rate limiting — 100 requests per minute per IP
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    addHeadersOnExceeding: { 'x-ratelimit-limit': true, 'x-ratelimit-remaining': true, 'x-ratelimit-reset': true },
+    addHeaders: { 'x-ratelimit-limit': true, 'x-ratelimit-remaining': true, 'x-ratelimit-reset': true, 'retry-after': true },
+  });
+
+  // Multipart file uploads — 50MB for audio files
+  await app.register(multipart, {
+    limits: { fileSize: 50 * 1024 * 1024 },
+  });
+
   app.setGlobalPrefix('api');
   app.useGlobalPipes(createValidationPipe());
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
+
+  logger.log('Security middleware configured: helmet + rate-limit (100 req/min)');
 }
