@@ -20,11 +20,12 @@ services:
     name: lumi-api
     plan: free
     runtime: node
-    nodeVersion: "20"
     rootDir: apps/api
     buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npx prisma migrate deploy && node dist/main
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
       - key: NODE_ENV
         value: production
       - key: PORT
@@ -49,10 +50,11 @@ services:
     name: lumi-web
     plan: free
     runtime: node
-    nodeVersion: "20"
     rootDir: apps/web
     buildCommand: npm install && npm run build
     startCommand: npx next start -p 10000
     envVars:
+      - key: NODE_VERSION
+        value: "20.18.0"
       - key: NEXT_PUBLIC_API_URL
         value: https://lumi-api.onrender.com/api
