@@ -22,10 +22,10 @@ services:
     runtime: node
     rootDir: apps/api
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node --experimental-require-module dist/main
+    startCommand: npx prisma migrate deploy && node dist/main
     envVars:
       - key: NODE_VERSION
-        value: "20.18.0"
+        value: "22.12.0"
       - key: NODE_ENV
         value: production
       - key: PORT
@@ -55,6 +55,6 @@ services:
     startCommand: npx next start -p 10000
     envVars:
       - key: NODE_VERSION
-        value: "20.18.0"
+        value: "22.12.0"
       - key: NEXT_PUBLIC_API_URL
         value: https://lumi-api.onrender.com/api
