@@ -22,7 +22,7 @@ services:
     runtime: node
     rootDir: apps/api
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
-    startCommand: npx prisma migrate deploy && node dist/main
+    startCommand: npx prisma migrate deploy && node --experimental-require-module dist/main
     envVars:
       - key: NODE_VERSION
         value: "20.18.0"

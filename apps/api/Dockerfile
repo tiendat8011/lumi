@@ -32,4 +32,4 @@ COPY --from=builder /app/package.json ./
 RUN mkdir -p /app/uploads
 
 EXPOSE 4000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node --experimental-require-module dist/main"]
