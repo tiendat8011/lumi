@@ -44,6 +44,8 @@ services:
         value: "7d"
       - key: APP_BASE_URL
         value: https://lumi-web.onrender.com
+      - key: GOOGLE_CLIENT_ID
+        value: ""  # Set in Render dashboard after creating Google OAuth credentials
 
   # ---- Web (Next.js) ----
   - type: web
@@ -58,3 +60,5 @@ services:
         value: "22.12.0"
       - key: NEXT_PUBLIC_API_URL
         value: https://lumi-api.onrender.com/api
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        value: ""  # Same Google Client ID as API — set in Render dashboard

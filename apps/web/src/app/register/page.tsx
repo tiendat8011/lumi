@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/ui/logo';
+import { GoogleLoginButton } from '@/components/google-login-button';
 import {
   XCircle,
   LoaderCircle,
@@ -16,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function RegisterPage() {
-  const { register, user } = useAuth();
+  const { register, loginWithGoogle, user } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -173,6 +174,25 @@ export default function RegisterPage() {
               )}
             </Button>
           </form>
+
+          {/* Divider */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-3 text-muted-foreground">hoặc</span>
+            </div>
+          </div>
+
+          {/* Google Register — uses the selected role */}
+          <GoogleLoginButton
+            onSuccess={async (credential) => {
+              await loginWithGoogle(credential, role);
+              router.push('/dashboard');
+            }}
+            text="signup_with"
+          />
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Đã có tài khoản?{' '}

@@ -14,13 +14,29 @@ export class UsersService {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
+  async findByGoogleId(googleId: string) {
+    return this.prisma.user.findUnique({ where: { googleId } });
+  }
+
   async create(data: {
     email: string;
-    passwordHash: string;
+    passwordHash?: string;
     displayName: string;
     role: Role;
+    googleId?: string;
+    avatarUrl?: string;
   }) {
     return this.prisma.user.create({ data });
+  }
+
+  async linkGoogle(id: string, data: { googleId: string; avatarUrl?: string }) {
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        googleId: data.googleId,
+        ...(data.avatarUrl && { avatarUrl: data.avatarUrl }),
+      },
+    });
   }
 
   async updateProfile(id: string, data: { displayName?: string; passwordHash?: string }) {

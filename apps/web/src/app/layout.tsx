@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { GoogleAuthProvider } from "@/components/google-auth-provider";
 import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
@@ -37,7 +38,9 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>{children}</AuthProvider>
+          <GoogleAuthProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </GoogleAuthProvider>
         </ThemeProvider>
       </body>
     </html>

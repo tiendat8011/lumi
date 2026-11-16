@@ -16,11 +16,14 @@ enum Role {
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
   displayName  String   @map("display_name")
   role         Role
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+
+  googleId  String? @unique @map("google_id")
+  avatarUrl String? @map("avatar_url")
 
   isActive                  Boolean @default(true) @map("is_active")
   emailNotificationsEnabled Boolean @default(true) @map("email_notifications_enabled")

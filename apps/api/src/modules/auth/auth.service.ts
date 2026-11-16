@@ -8,20 +8,28 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
+  private googleClient: OAuth2Client;
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) {
+    this.googleClient = new OAuth2Client(
+      this.configService.get<string>('GOOGLE_CLIENT_ID'),
+    );
+  }
 
   async register(dto: RegisterDto) {
     const existing = await this.usersService.findByEmail(dto.email);
@@ -46,6 +54,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        'Tài khoản này sử dụng đăng nhập Google. Vui lòng đăng nhập bằng Google.',
+      );
+    }
+
     const valid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -56,6 +70,60 @@ export class AuthService {
       user: this.sanitizeUser(user),
       ...tokens,
     };
+  }
+
+  async googleLogin(dto: GoogleLoginDto) {
+    const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!googleClientId) {
+      throw new BadRequestException('Google login is not configured');
+    }
+
+    let payload;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken: dto.credential,
+        audience: googleClientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+
+    if (!payload || !payload.email) {
+      throw new UnauthorizedException('Invalid Google token payload');
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email;
+    const displayName = payload.name || email.split('@')[0] || 'User';
+    const avatarUrl = payload.picture || undefined;
+
+    // 1. Check if user exists by googleId
+    let user = await this.usersService.findByGoogleId(googleId);
+    if (user) {
+      const tokens = await this.generateTokens(user.id, user.role);
+      return { user: this.sanitizeUser(user), ...tokens };
+    }
+
+    // 2. Check if user exists by email — link Google account
+    user = await this.usersService.findByEmail(email);
+    if (user) {
+      await this.usersService.linkGoogle(user.id, { googleId, avatarUrl });
+      const tokens = await this.generateTokens(user.id, user.role);
+      return { user: this.sanitizeUser(user), ...tokens };
+    }
+
+    // 3. Create new user (no password needed)
+    user = await this.usersService.create({
+      email,
+      displayName,
+      role: dto.role,
+      googleId,
+      avatarUrl,
+    });
+
+    const tokens = await this.generateTokens(user.id, user.role);
+    return { user: this.sanitizeUser(user), ...tokens };
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -69,13 +137,17 @@ export class AuthService {
     }
 
     if (dto.newPassword) {
-      if (!dto.currentPassword) {
-        throw new BadRequestException('Current password is required');
+      if (user.passwordHash) {
+        // User has a password — require current password
+        if (!dto.currentPassword) {
+          throw new BadRequestException('Current password is required');
+        }
+        const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+        if (!valid) {
+          throw new BadRequestException('Current password is incorrect');
+        }
       }
-      const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
-      if (!valid) {
-        throw new BadRequestException('Current password is incorrect');
-      }
+      // Google-only users can set a password without providing current password
       updateData.passwordHash = await bcrypt.hash(dto.newPassword, 12);
     }
 
