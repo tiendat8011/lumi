@@ -10,11 +10,17 @@ interface User {
   role: 'TEACHER' | 'STUDENT' | 'ADMIN';
 }
 
+/**
+ * Either proof of a Google identity: `accessToken` from the implicit flow a
+ * custom button uses, or `credential` (an ID token) from Google's own button.
+ */
+type GoogleToken = { accessToken: string } | { credential: string };
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (credential: string, role: string) => Promise<void>;
+  loginWithGoogle: (token: GoogleToken, role: string) => Promise<void>;
   register: (email: string, password: string, displayName: string, role: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -55,10 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(data.user);
   };
 
-  const loginWithGoogle = async (credential: string, role: string) => {
+  const loginWithGoogle = async (token: GoogleToken, role: string) => {
     const data = await api<{ accessToken: string; refreshToken: string; user: User }>(
       '/auth/google',
-      { method: 'POST', body: JSON.stringify({ credential, role }) },
+      { method: 'POST', body: JSON.stringify({ ...token, role }) },
     );
     setTokens(data.accessToken, data.refreshToken);
     setUser(data.user);

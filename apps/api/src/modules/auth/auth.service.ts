@@ -16,6 +16,14 @@ import { LoginDto } from './dto/login.dto';
 import { GoogleLoginDto } from './dto/google-login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
+/** The identity we need out of Google, however the client proved it. */
+interface GoogleProfile {
+  googleId: string;
+  email: string;
+  name?: string;
+  picture?: string;
+}
+
 @Injectable()
 export class AuthService {
   private googleClient: OAuth2Client;
@@ -78,25 +86,23 @@ export class AuthService {
       throw new BadRequestException('Google login is not configured');
     }
 
-    let payload;
-    try {
-      const ticket = await this.googleClient.verifyIdToken({
-        idToken: dto.credential,
-        audience: googleClientId,
-      });
-      payload = ticket.getPayload();
-    } catch {
-      throw new UnauthorizedException('Invalid Google token');
+    let profile: GoogleProfile;
+    if (dto.credential) {
+      profile = await this.profileFromIdToken(dto.credential, googleClientId);
+    } else if (dto.accessToken) {
+      profile = await this.profileFromAccessToken(
+        dto.accessToken,
+        googleClientId,
+      );
+    } else {
+      throw new BadRequestException(
+        'Thiếu thông tin đăng nhập Google (credential hoặc accessToken)',
+      );
     }
 
-    if (!payload || !payload.email) {
-      throw new UnauthorizedException('Invalid Google token payload');
-    }
-
-    const googleId = payload.sub;
-    const email = payload.email;
-    const displayName = payload.name || email.split('@')[0] || 'User';
-    const avatarUrl = payload.picture || undefined;
+    const { googleId, email } = profile;
+    const displayName = profile.name || email.split('@')[0] || 'User';
+    const avatarUrl = profile.picture;
 
     // 1. Check if user exists by googleId
     let user = await this.usersService.findByGoogleId(googleId);
@@ -217,6 +223,95 @@ export class AuthService {
   async logout(refreshToken: string) {
     const tokenHash = this.hashToken(refreshToken);
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash } });
+  }
+
+  /**
+   * Verify an ID token (Google's own rendered button) and read the identity
+   * out of its signed payload.
+   */
+  private async profileFromIdToken(
+    idToken: string,
+    googleClientId: string,
+  ): Promise<GoogleProfile> {
+    let payload;
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: googleClientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      throw new UnauthorizedException('Invalid Google token');
+    }
+
+    if (!payload?.sub || !payload.email) {
+      throw new UnauthorizedException('Invalid Google token payload');
+    }
+    // We link accounts by email below, so an unverified email would let anyone
+    // who can create a Google account on that address take over the user.
+    if (payload.email_verified === false) {
+      throw new UnauthorizedException(
+        'Email Google này chưa được xác thực. Vui lòng xác thực email với Google rồi thử lại.',
+      );
+    }
+
+    return {
+      googleId: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      picture: payload.picture,
+    };
+  }
+
+  /**
+   * Verify an OAuth access token (implicit flow, custom button). The tokeninfo
+   * endpoint tells us which client the token was minted for; without that
+   * check, a token issued to any other Google app would be accepted here.
+   */
+  private async profileFromAccessToken(
+    accessToken: string,
+    googleClientId: string,
+  ): Promise<GoogleProfile> {
+    let tokenInfo;
+    try {
+      tokenInfo = await this.googleClient.getTokenInfo(accessToken);
+    } catch {
+      throw new UnauthorizedException('Invalid Google access token');
+    }
+
+    if (tokenInfo.aud !== googleClientId) {
+      throw new UnauthorizedException(
+        'Google token was not issued for this application',
+      );
+    }
+    if (!tokenInfo.sub || !tokenInfo.email) {
+      throw new UnauthorizedException('Google token is missing the identity');
+    }
+    if (tokenInfo.email_verified === false) {
+      throw new UnauthorizedException(
+        'Email Google này chưa được xác thực. Vui lòng xác thực email với Google rồi thử lại.',
+      );
+    }
+
+    // Display name and avatar are not in tokeninfo; they are a nice-to-have, so
+    // a failure here must not block the login.
+    let name: string | undefined;
+    let picture: string | undefined;
+    try {
+      const res = await fetch(
+        'https://www.googleapis.com/oauth2/v3/userinfo',
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (res.ok) {
+        const info = (await res.json()) as { name?: string; picture?: string };
+        name = info.name;
+        picture = info.picture;
+      }
+    } catch {
+      // ignore — fall back to the email local part for the display name
+    }
+
+    return { googleId: tokenInfo.sub, email: tokenInfo.email, name, picture };
   }
 
   private async generateTokens(userId: string, role: string) {

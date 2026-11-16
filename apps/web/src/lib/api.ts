@@ -43,6 +43,68 @@ export function getAccessToken() {
   return accessToken;
 }
 
+const NETWORK_ERROR =
+  'Không thể kết nối tới server. Kiểm tra kết nối mạng rồi thử lại.';
+
+type Body =
+  | { kind: 'json'; value: unknown }
+  | { kind: 'empty' }
+  | { kind: 'text'; value: string };
+
+/**
+ * Read a response body without assuming it is JSON.
+ *
+ * A gateway timeout, a cold-starting server, a 204, or an HTML error page from
+ * a proxy all produce a body that `res.json()` cannot parse — it throws
+ * "Unexpected end of JSON input" and hides the real HTTP status.
+ */
+async function readBody(res: Response): Promise<Body> {
+  if (res.status === 204 || res.status === 205 || res.status === 304) {
+    return { kind: 'empty' };
+  }
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return { kind: 'empty' };
+  }
+  const trimmed = text.trim();
+  if (!trimmed) return { kind: 'empty' };
+  try {
+    return { kind: 'json', value: JSON.parse(trimmed) };
+  } catch {
+    return { kind: 'text', value: trimmed };
+  }
+}
+
+function errorMessage(res: Response, body: Body): string {
+  // The API's own error envelope: {success: false, error: {code, message}}
+  if (body.kind === 'json') {
+    const payload = body.value as ApiError;
+    if (payload?.error?.message) return payload.error.message;
+  }
+
+  switch (res.status) {
+    case 401:
+      return 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+    case 403:
+      return 'Bạn không có quyền thực hiện thao tác này.';
+    case 404:
+      return `Không tìm thấy đường dẫn trên server (404). Kiểm tra NEXT_PUBLIC_API_URL.`;
+    case 429:
+      return 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng chờ một phút rồi thử lại.';
+    case 502:
+    case 503:
+    case 504:
+      return 'Server đang khởi động lại (bản miễn phí sẽ ngủ khi không dùng). Chờ khoảng 30–60 giây rồi thử lại.';
+  }
+
+  if (body.kind === 'text') {
+    return `Server trả về phản hồi không phải JSON (HTTP ${res.status}).`;
+  }
+  return `Yêu cầu thất bại (HTTP ${res.status}).`;
+}
+
 async function refreshAccessToken(): Promise<boolean> {
   if (!refreshToken) return false;
   try {
@@ -52,10 +114,16 @@ async function refreshAccessToken(): Promise<boolean> {
       body: JSON.stringify({ refreshToken }),
     });
     if (!res.ok) return false;
-    const json = (await res.json()) as ApiResponse<{
+
+    const body = await readBody(res);
+    if (body.kind !== 'json') return false;
+
+    const json = body.value as ApiResponse<{
       accessToken: string;
       refreshToken: string;
     }>;
+    if (!json?.data?.accessToken || !json?.data?.refreshToken) return false;
+
     setTokens(json.data.accessToken, json.data.refreshToken);
     return true;
   } catch {
@@ -76,22 +144,38 @@ export async function api<T = unknown>(
     headers['Authorization'] = `Bearer ${accessToken}`;
   }
 
-  let res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  } catch {
+    throw new Error(NETWORK_ERROR);
+  }
 
   if (res.status === 401 && accessToken) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       headers['Authorization'] = `Bearer ${accessToken}`;
-      res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      try {
+        res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      } catch {
+        throw new Error(NETWORK_ERROR);
+      }
     }
   }
 
-  const json = await res.json();
+  const body = await readBody(res);
 
   if (!res.ok) {
-    const err = json as ApiError;
-    throw new Error(err.error?.message || 'Request failed');
+    throw new Error(errorMessage(res, body));
   }
 
-  return (json as ApiResponse<T>).data;
+  // A successful response with no body (e.g. 204) is valid for void endpoints.
+  if (body.kind === 'empty') {
+    return undefined as T;
+  }
+  if (body.kind === 'text') {
+    throw new Error('Server trả về phản hồi không phải JSON.');
+  }
+
+  return (body.value as ApiResponse<T>).data;
 }
