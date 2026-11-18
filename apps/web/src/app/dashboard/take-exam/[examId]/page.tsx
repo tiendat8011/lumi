@@ -74,14 +74,31 @@ interface Attempt {
   status: 'IN_PROGRESS' | 'SUBMITTED';
   expiresAt: string;
   score?: string | null;
+  /** POST /attempts/start returns only these two fields under `exam`. */
   exam: {
     title: string;
     instructions: string | null;
-    questions: ExamQuestion[];
-    showResultImmediately: boolean;
-    shuffleOptions: boolean;
   };
+  /** The questions come back at the top level, NOT under `exam`. */
+  questions: ExamQuestion[];
   answers: Answer[];
+  /**
+   * Filled in from the submit response. Whether a student may see a score is
+   * decided by canStudentSeeResults on the server — showResultImmediately OR
+   * resultsReleased, and the assignment not hiding them. The client takes that
+   * answer and must not re-derive it from a single flag, which is what this
+   * screen used to do.
+   */
+  resultsHidden?: boolean;
+}
+
+/** POST /attempts/:id/submit — a different shape from Attempt. */
+interface SubmitResult {
+  id: string;
+  status: 'SUBMITTED';
+  submittedAt: string;
+  score?: string | null;
+  resultsHidden: boolean;
 }
 
 type AnswerValue = string | string[] | { text: string };
@@ -184,6 +201,35 @@ function TakeExamPage() {
   > | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // Guards the submit against a second in-flight call. A ref rather than the
+  // `submitting` state because the auto-submit on expiry and a click on "Nộp
+  // bài" can land in the same tick, where both would still read the old state.
+  const submitInFlightRef = useRef(false);
+
+  const handleSubmit = useCallback(async () => {
+    if (!attempt || submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    setSubmitting(true);
+    if (timerRef.current) clearInterval(timerRef.current);
+    try {
+      const result = await api<SubmitResult>(
+        `/attempts/${attempt.id}/submit`,
+        { method: 'POST' },
+      );
+      setAttempt({
+        ...attempt,
+        status: 'SUBMITTED',
+        score: result.score,
+        resultsHidden: result.resultsHidden,
+      });
+    } catch {
+      // ignore
+    } finally {
+      submitInFlightRef.current = false;
+      setSubmitting(false);
+    }
+  }, [attempt]);
+
   const handleSaveAnswer = useCallback(
     async (
       examQuestionId: string,
@@ -257,9 +303,15 @@ function TakeExamPage() {
   }, [examId, assignmentId, router]);
 
   useEffect(() => {
-    startAttempt();
+    void (async () => {
+      await startAttempt();
+    })();
   }, [startAttempt]);
 
+  // The countdown only counts. It used to call the submit from inside the
+  // setTimeLeft updater, which has to be a pure function of the previous
+  // value — React may run it more than once per tick, which could fire a
+  // second submit. Reaching zero is now handled by the effect below.
   useEffect(() => {
     if (
       !attempt ||
@@ -267,19 +319,27 @@ function TakeExamPage() {
       showInstructions
     )
       return;
-    timerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    timerRef.current = interval;
+    return () => clearInterval(interval);
   }, [attempt, showInstructions]);
+
+  // Auto-submit when the countdown reaches zero. `handleSubmit` is guarded by
+  // submitInFlightRef, so this submits exactly once.
+  useEffect(() => {
+    if (
+      !attempt ||
+      attempt.status === 'SUBMITTED' ||
+      showInstructions ||
+      timeLeft > 0
+    )
+      return;
+    void (async () => {
+      await handleSubmit();
+    })();
+  }, [attempt, showInstructions, timeLeft, handleSubmit]);
 
   useEffect(() => {
     if (!attempt || attempt.status !== 'IN_PROGRESS')
@@ -476,27 +536,6 @@ function TakeExamPage() {
     };
   }, [audioUrl]);
 
-  const handleSubmit = async () => {
-    if (!attempt || submitting) return;
-    setSubmitting(true);
-    if (timerRef.current) clearInterval(timerRef.current);
-    try {
-      const result = await api<Attempt>(
-        `/attempts/${attempt.id}/submit`,
-        { method: 'POST' },
-      );
-      setAttempt({
-        ...attempt,
-        status: 'SUBMITTED',
-        score: result.score,
-      });
-    } catch {
-      // ignore
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -537,13 +576,7 @@ function TakeExamPage() {
             </div>
           </div>
           <div className="text-center text-sm text-muted-foreground">
-            Thời gian:{' '}
-            {Math.round(
-              (new Date(attempt.expiresAt).getTime() -
-                Date.now()) /
-                60000,
-            )}{' '}
-            phút
+            Thời gian: {Math.round(timeLeft / 60)} phút
           </div>
           <Button
             onClick={() => setShowInstructions(false)}
@@ -561,7 +594,7 @@ function TakeExamPage() {
     const answeredCount = Object.values(answers).filter(
       (v) => isAnswered(v),
     ).length;
-    const totalQuestions = attempt.exam.questions.length;
+    const totalQuestions = attempt.questions.length;
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -581,7 +614,7 @@ function TakeExamPage() {
           </p>
 
           {attempt.score != null &&
-            attempt.exam.showResultImmediately && (
+            !attempt.resultsHidden && (
               <p className="text-lg">
                 Điểm:{' '}
                 <span className="text-2xl font-bold text-primary">
@@ -606,20 +639,7 @@ function TakeExamPage() {
                   Thời gian
                 </p>
                 <p className="text-lg font-bold">
-                  {formatTime(
-                    Math.max(
-                      0,
-                      Math.floor(
-                        (new Date(
-                          attempt.expiresAt,
-                        ).getTime() -
-                          Date.now()) /
-                          1000,
-                      ),
-                    ),
-                  ) === '00:00'
-                    ? 'Hết giờ'
-                    : 'Đã nộp'}
+                  {timeLeft <= 0 ? 'Hết giờ' : 'Đã nộp'}
                 </p>
               </div>
               <div>
@@ -634,9 +654,9 @@ function TakeExamPage() {
           </div>
 
           <p className="text-sm text-muted-foreground">
-            {attempt.exam.showResultImmediately
-              ? 'Xem kết quả chi tiết trong mục Kết quả.'
-              : 'Giáo viên sẽ công bố kết quả sau.'}
+            {attempt.resultsHidden
+              ? 'Giáo viên sẽ công bố kết quả sau.'
+              : 'Xem kết quả chi tiết trong mục Kết quả.'}
           </p>
           <Button
             onClick={() =>
@@ -651,7 +671,7 @@ function TakeExamPage() {
     );
   }
 
-  const questions = attempt.exam.questions;
+  const questions = attempt.questions;
   const answeredCount = Object.values(answers).filter(
     (v) => isAnswered(v),
   ).length;
@@ -857,6 +877,17 @@ function TakeExamPage() {
                 {/* Image */}
                 {currentQuestion.imageUrlSnapshot && (
                   <div className="mb-4">
+                    {/*
+                      next/image is deliberately not used here. The image is a
+                      teacher upload served from the API host, which comes from
+                      NEXT_PUBLIC_API_URL at runtime and differs per deployment
+                      (localhost in dev, a service hostname in Docker and on
+                      Render). images.remotePatterns is build-time config, so
+                      there is no correct pattern to declare for it. Routing
+                      exam images through the optimizer would also add a second
+                      host that has to be up while a timed attempt is running.
+                    */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={
                         currentQuestion.imageUrlSnapshot

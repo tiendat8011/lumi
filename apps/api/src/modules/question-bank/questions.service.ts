@@ -8,7 +8,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
-import { PaginationQueryDto, paginate } from '../../common/dto/pagination.dto';
+import { paginate } from '../../common/dto/pagination.dto';
+import { QuestionQueryDto } from './dto/question-query.dto';
 
 @Injectable()
 export class QuestionsService {
@@ -178,15 +179,7 @@ export class QuestionsService {
     });
   }
 
-  async findAll(
-    ownerId: string,
-    query: PaginationQueryDto & {
-      search?: string;
-      categoryId?: string;
-      difficulty?: string;
-      type?: string;
-    },
-  ) {
+  async findAll(ownerId: string, query: QuestionQueryDto) {
     const where: Record<string, unknown> = { ownerId };
     if (query.search) {
       where.content = { contains: query.search, mode: 'insensitive' };

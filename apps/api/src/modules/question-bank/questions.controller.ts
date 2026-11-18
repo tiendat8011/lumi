@@ -19,7 +19,7 @@ import { BulkCreateQuestionsDto } from './dto/bulk-create-questions.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { PaginationQueryDto } from '../../common/dto/pagination.dto';
+import { QuestionQueryDto } from './dto/question-query.dto';
 import { readUpload } from '../storage/upload.util';
 import { parseDocx } from './docx-parser';
 
@@ -84,12 +84,7 @@ export class QuestionsController {
   @Get()
   async findAll(
     @CurrentUser('id') userId: string,
-    @Query() query: PaginationQueryDto & {
-      search?: string;
-      categoryId?: string;
-      difficulty?: string;
-      type?: string;
-    },
+    @Query() query: QuestionQueryDto,
   ) {
     return this.questionsService.findAll(userId, query);
   }
