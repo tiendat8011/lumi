@@ -42,6 +42,33 @@ export default function DashboardLayout({
       .slice(0, 2)
       .toUpperCase() || '?';
 
+  const roleLabel =
+    user?.role === 'TEACHER'
+      ? 'Giáo viên'
+      : user?.role === 'ADMIN'
+        ? 'Quản trị viên'
+        : 'Học sinh';
+
+  // Pinned to the bottom of the sidebar on desktop and in the mobile sheet,
+  // so the account in use is visible without opening the header menu.
+  const accountCard = (
+    <div className="border-t border-sidebar-border p-3">
+      <div className="flex items-center gap-2.5">
+        <Avatar className="h-8 w-8">
+          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-sidebar-foreground">
+            {user?.displayName}
+          </p>
+          <p className="truncate text-[11px] text-sidebar-foreground/70">
+            {roleLabel}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   useEffect(() => {
     if (!user) return;
     api<{ unread: number }>('/notifications/count')
@@ -66,23 +93,7 @@ export default function DashboardLayout({
           <div className="flex-1 overflow-y-auto">
             <SidebarNav />
           </div>
-          <div className="border-t border-sidebar-border p-3">
-            <div className="flex items-center gap-2 text-sm">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="text-xs">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-sidebar-foreground">
-                  {user?.displayName}
-                </p>
-                <p className="truncate text-[10px] text-sidebar-foreground/60">
-                  {user?.email}
-                </p>
-              </div>
-            </div>
-          </div>
+          {accountCard}
         </aside>
 
         {/* Main area */}
@@ -104,17 +115,21 @@ export default function DashboardLayout({
               </SheetTrigger>
               <SheetContent
                 side="left"
-                className="w-64 bg-sidebar p-0"
+                className="flex w-64 flex-col bg-sidebar p-0"
               >
                 <SheetTitle className="sr-only">
                   Navigation
                 </SheetTitle>
-                <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
+                <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
                   <Logo />
                 </div>
-                <div onClick={() => setMobileOpen(false)}>
+                <div
+                  className="flex-1 overflow-y-auto"
+                  onClick={() => setMobileOpen(false)}
+                >
                   <SidebarNav />
                 </div>
+                {accountCard}
               </SheetContent>
             </Sheet>
 

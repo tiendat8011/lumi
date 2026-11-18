@@ -826,8 +826,8 @@ function TakeExamPage() {
 
                 {/* Audio player for listening questions */}
                 {currentQuestion.audioUrlSnapshot && (
-                  <div className="mb-4 rounded-xl bg-blue-50 p-4 dark:bg-blue-950/20">
-                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-700 dark:text-blue-400">
+                  <div className="mb-4 rounded-xl border bg-muted/60 p-4">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                       <Headphones className="h-4 w-4" />
                       Nghe đoạn audio và trả lời câu hỏi
                     </div>
@@ -843,8 +843,8 @@ function TakeExamPage() {
 
                 {/* Passage for reading questions */}
                 {currentQuestion.passageSnapshot && (
-                  <div className="mb-4 rounded-xl border bg-amber-50/50 p-5 dark:bg-amber-950/10">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  <div className="mb-4 rounded-xl border bg-muted/60 p-5">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                       <BookOpen className="h-4 w-4" />
                       Đọc đoạn văn sau
                     </div>
@@ -1076,7 +1076,8 @@ function TakeExamPage() {
                       <button
                         type="button"
                         onClick={startRecording}
-                        className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-500 text-white transition-colors hover:bg-blue-600"
+                        aria-label="Bắt đầu ghi âm"
+                        className="flex h-20 w-20 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
                       >
                         <Mic className="h-8 w-8" />
                       </button>
@@ -1090,13 +1091,23 @@ function TakeExamPage() {
                       <button
                         type="button"
                         onClick={stopRecording}
-                        className="flex h-20 w-20 animate-pulse items-center justify-center rounded-full bg-red-500 text-white transition-colors hover:bg-red-600"
+                        aria-label="Dừng ghi âm"
+                        className="flex h-20 w-20 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90"
                       >
                         <Square className="h-8 w-8" />
                       </button>
-                      <p className="text-sm font-semibold text-red-600">
-                        Đang ghi...{' '}
-                        {formatTime(recordingTime)}
+                      {/* Red carries the recording state as an indicator beside
+                          a text label, not as the colour of the whole control:
+                          destructive red means "error" everywhere else. */}
+                      <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <span
+                          aria-hidden="true"
+                          className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-600"
+                        />
+                        Đang ghi âm{' '}
+                        <span className="tabular-nums">
+                          {formatTime(recordingTime)}
+                        </span>
                       </p>
                     </div>
                   )}

@@ -42,7 +42,7 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden p-12 text-white lg:flex bg-[linear-gradient(145deg,#172554,#1e40af_58%,#3730a3)] before:pointer-events-none before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_85%_20%,rgba(34,211,238,0.26),transparent_24%),radial-gradient(circle_at_15%_88%,rgba(99,102,241,0.35),transparent_28%)]">
+      <div className="relative hidden flex-col justify-between overflow-hidden bg-[#0F172A] p-12 text-white lg:flex">
         <Logo className="relative z-10 text-white" />
         <div className="relative z-10 max-w-[570px]">
           <span className="inline-block rounded-full bg-cyan-400/20 px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-cyan-300">

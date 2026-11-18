@@ -214,7 +214,7 @@ function StudentDashboard({
   return (
     <div className="space-y-6">
       {/* Student hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#172554] via-[#1e40af] to-[#4338ca] p-6 text-white lg:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-[#0F172A] p-6 text-white lg:p-8">
         <div className="relative z-10">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-400/20 px-2.5 py-1 text-[10px] font-extrabold text-cyan-300">
             <Zap className="h-3 w-3" />
