@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   ConflictException,
   UnauthorizedException,
   BadRequestException,
@@ -10,6 +11,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../../database/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -24,8 +26,22 @@ interface GoogleProfile {
   picture?: string;
 }
 
+/** How long a password reset link stays valid. */
+const RESET_TOKEN_TTL_MS = 3600_000;
+
+/** Escape text interpolated into the HTML body of an outgoing mail. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private googleClient: OAuth2Client;
 
   constructor(
@@ -33,6 +49,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
   ) {
     this.googleClient = new OAuth2Client(
       this.configService.get<string>('GOOGLE_CLIENT_ID'),
@@ -162,21 +179,88 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) return { message: 'If the email exists, a reset link has been sent' };
+    // One response object for both branches. The endpoint is @Public(), so any
+    // difference in body or status between a known and an unknown address turns
+    // it into an account-existence oracle.
+    const response = {
+      message: 'If the email exists, a reset link has been sent',
+    };
 
-    await this.prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
+    const user = await this.usersService.findByEmail(email);
+    if (!user) return response;
+
+    await this.prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
 
     const token = crypto.randomBytes(32).toString('hex');
     const tokenHash = this.hashToken(token);
-    const expiresAt = new Date(Date.now() + 3600_000);
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
 
     await this.prisma.passwordResetToken.create({
       data: { userId: user.id, tokenHash, expiresAt },
     });
 
-    // In production: send email with token. For now, return it.
-    return { message: 'If the email exists, a reset link has been sent', resetToken: token };
+    // The raw token leaves the server by email only. Returning it here would
+    // let anyone who knows an address take the account over with two
+    // unauthenticated requests.
+    await this.sendPasswordResetMail(user.email, user.displayName, token);
+
+    return response;
+  }
+
+  /**
+   * Mail the reset link. A failure here must not change the response: a 500 for
+   * a known address next to a 200 for an unknown one would reintroduce the
+   * enumeration oracle `forgotPassword` is careful to avoid. `MailService.send`
+   * already swallows transport errors; this guards against anything else.
+   */
+  private async sendPasswordResetMail(
+    email: string,
+    displayName: string,
+    token: string,
+  ): Promise<void> {
+    const baseUrl = this.configService
+      .get<string>('APP_BASE_URL', 'http://localhost:3000')
+      .replace(/\/+$/, '');
+    const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+    const text = [
+      `Xin chào ${displayName},`,
+      '',
+      'Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Lumi của bạn.',
+      '',
+      'Mở liên kết sau để đặt mật khẩu mới (liên kết có hiệu lực trong 1 giờ):',
+      resetUrl,
+      '',
+      'Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này. Mật khẩu hiện tại của bạn vẫn an toàn.',
+      '',
+      'Lumi Lite',
+    ].join('\n');
+
+    const html = [
+      `<p>Xin chào ${escapeHtml(displayName)},</p>`,
+      '<p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản Lumi của bạn.</p>',
+      `<p><a href="${escapeHtml(resetUrl)}">Đặt lại mật khẩu</a></p>`,
+      '<p>Liên kết có hiệu lực trong 1 giờ.</p>',
+      '<p>Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này. Mật khẩu hiện tại của bạn vẫn an toàn.</p>',
+      '<p>Lumi Lite</p>',
+    ].join('');
+
+    try {
+      await this.mailService.send({
+        to: email,
+        subject: 'Đặt lại mật khẩu Lumi',
+        text,
+        html,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to queue the password reset mail: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -186,7 +270,13 @@ export class AuthService {
     });
 
     if (!stored || stored.expiresAt < new Date()) {
-      throw new BadRequestException('Invalid or expired reset token');
+      // One message for both cases, so the response does not say whether a
+      // token existed. The text is shown to the user, so it is Vietnamese.
+      throw new BadRequestException({
+        code: 'INVALID_RESET_TOKEN',
+        message:
+          'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
+      });
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
