@@ -10,9 +10,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build-time env — will be overridden at runtime via Railway variables
+# NEXT_PUBLIC_* values are inlined into the client bundle during `next build`,
+# so they must be present HERE, as build args. Setting them only at runtime
+# (compose `environment:`, or a host's runtime env) has no effect on the
+# already-built bundle.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
+ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

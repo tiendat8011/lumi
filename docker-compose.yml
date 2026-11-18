@@ -64,11 +64,14 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* must be build args: next build inlines them into the
+      # client bundle, so a runtime `environment:` entry would be ignored.
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000/api
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:4000/api
     depends_on:
       - api
 

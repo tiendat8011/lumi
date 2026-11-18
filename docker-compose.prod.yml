@@ -64,6 +64,8 @@ services:
       SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS:-}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Lumi Lite}
       APP_BASE_URL: ${APP_BASE_URL}
+      # Empty disables Google sign-in; must match NEXT_PUBLIC_GOOGLE_CLIENT_ID
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,12 +76,13 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* are inlined at build time, so they belong here, not in
+      # `environment:` — a runtime value cannot reach the built bundle.
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     # Web NOT exposed to host — nginx proxies
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
     depends_on:
       - api
 
