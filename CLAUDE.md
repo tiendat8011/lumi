@@ -27,8 +27,44 @@ Run from the repository root.
 | API e2e tests (`apps/api/test`, needs the database) | `npm run test:e2e:api` |
 | Prisma migration | `npm run prisma:migrate:dev --workspace=apps/api` |
 
-Jest is configured for the API but the repository has no test files yet. The
-web app has no test framework. There is no CI.
+The API has Jest unit tests. The web app has no test framework, so nothing
+catches a web regression automatically. There is no CI, which is why the check
+below is not optional.
+
+## Verification before handing work back
+
+No change is done until the checks have been run and their real output read.
+There is no CI to catch what you skip, so a claim that something passes counts
+for nothing without the command's output.
+
+Run the checks through the `qa-engineer` agent rather than by hand, and give it
+the diff to verify against. A fresh agent re-runs the commands and reads the
+output instead of trusting the author's summary, which is the whole point: the
+author is the least reliable judge of their own change.
+
+| Check | Command | Applies to |
+|---|---|---|
+| Lint | `npm run lint` | every change |
+| API unit tests | `npm run test:api` | every API change |
+| API build | `npm run build:api` | every API change |
+| Web build | `npm run build:web` | every web change |
+| API e2e | `npm run test:e2e:api` | auth, grading, attempts (needs the DB) |
+
+Rules:
+
+- Compare against the state before your change. A pre-existing failure is not
+  yours to claim as broken, and not yours to silently inherit either: say which
+  failures existed before and which your change introduced, with file and line.
+- Never silence a check to make it pass — no `eslint-disable` to clear a real
+  finding, no skipped test, no `--no-verify`. If a rule genuinely does not
+  apply, say why in the reply and in a comment at the site.
+- A web change needs more than a green build: the build does not run the page.
+  Say which screens you actually exercised and how.
+- `apps/web/src/app/dashboard/take-exam/` and the grading and auth modules have
+  no automated coverage and carry exam integrity. Changes there get a named
+  manual check per behaviour touched, plus `npm run test:e2e:api`.
+- Report failures and unverified items as plainly as successes. "Lint passes"
+  when it was never run is the failure mode this section exists to prevent.
 
 ## Conventions
 
