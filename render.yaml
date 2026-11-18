@@ -4,8 +4,14 @@
 # 1. Go to https://dashboard.render.com/select-repo?type=blueprint
 # 2. Connect this GitHub repo
 # 3. Render reads this file and creates all services
-# 4. After first deploy: update CORS_ORIGIN and NEXT_PUBLIC_API_URL
-#    with the actual generated .onrender.com URLs
+#
+# The hostnames below are this deployment's real ones. Render only grants the
+# bare `<name>.onrender.com` when that subdomain is globally free; `lumi-api`
+# and `lumi-web` were taken, so these services got a random suffix. If you
+# recreate them under new names, update every URL here in the same commit:
+# a stale hostname does not fail loudly, it resolves to Render's edge and
+# returns an empty 404, so the app appears broken for reasons that look
+# unrelated to configuration.
 
 databases:
   - name: lumi-db
@@ -35,7 +41,7 @@ services:
           name: lumi-db
           property: connectionString
       - key: CORS_ORIGIN
-        value: https://lumi-web.onrender.com
+        value: https://lumi-web-fu9c.onrender.com
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
@@ -43,9 +49,12 @@ services:
       - key: JWT_REFRESH_EXPIRES_IN
         value: "7d"
       - key: APP_BASE_URL
-        value: https://lumi-web.onrender.com
-      - key: GOOGLE_CLIENT_ID
-        value: ""  # Set in Render dashboard after creating Google OAuth credentials
+        value: https://lumi-web-fu9c.onrender.com
+      # GOOGLE_CLIENT_ID is deliberately NOT declared here. A blueprint sync
+      # overwrites every variable it declares, so declaring it with an empty
+      # value would wipe the one set in the dashboard and silently break
+      # Google sign-in. Set it on the service instead (same value as the web
+      # service's NEXT_PUBLIC_GOOGLE_CLIENT_ID).
 
   # ---- Web (Next.js) ----
   - type: web
@@ -58,7 +67,12 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22.12.0"
+      # Baked into the client bundle at build time: changing it needs a
+      # rebuild, not just a restart. It must be the API service's real
+      # hostname — an unclaimed *.onrender.com name is served by Render's edge
+      # (or by somebody else's service) and answers every path with an empty
+      # 404, which looks like a frontend bug rather than a wrong URL.
       - key: NEXT_PUBLIC_API_URL
-        value: https://lumi-api.onrender.com/api
-      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
-        value: ""  # Same Google Client ID as API — set in Render dashboard
+        value: https://lumi-api-0k2f.onrender.com/api
+      # NEXT_PUBLIC_GOOGLE_CLIENT_ID is set on the service, not here — see the
+      # note on GOOGLE_CLIENT_ID above.
