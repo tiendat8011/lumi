@@ -88,11 +88,16 @@ export default function ResultsPage() {
   }, [selectedExam]);
 
   useEffect(() => {
-    fetchExams();
+    void (async () => {
+      await fetchExams();
+    })();
   }, [fetchExams]);
 
   useEffect(() => {
-    if (selectedExam) fetchAttempts();
+    if (!selectedExam) return;
+    void (async () => {
+      await fetchAttempts();
+    })();
   }, [selectedExam, fetchAttempts]);
 
   async function handleReleaseResults() {

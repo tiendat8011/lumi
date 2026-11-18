@@ -80,7 +80,9 @@ export default function ClassroomsPage() {
   }, []);
 
   useEffect(() => {
-    fetchClassrooms();
+    void (async () => {
+      await fetchClassrooms();
+    })();
   }, [fetchClassrooms]);
 
   const filtered = classrooms.filter((c) =>

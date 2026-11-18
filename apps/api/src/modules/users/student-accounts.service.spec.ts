@@ -1,4 +1,5 @@
 import { StudentAccountsService } from './student-accounts.service';
+import type { Tx } from '../../common/db/locks';
 
 describe('StudentAccountsService', () => {
   let service: StudentAccountsService;
@@ -15,7 +16,7 @@ describe('StudentAccountsService', () => {
         create: jest.fn(),
       },
       classroomMember: { create: jest.fn() },
-    } as any;
+    } as unknown as Tx;
 
     await expect(
       service.createStudents(
@@ -43,7 +44,7 @@ describe('StudentAccountsService', () => {
         }),
       },
       classroomMember: { create: jest.fn() },
-    } as any;
+    } as unknown as Tx;
 
     const result = await service.createStudents(
       tx,

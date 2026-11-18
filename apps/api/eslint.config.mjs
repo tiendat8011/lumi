@@ -7,7 +7,9 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: './tsconfig.json',
+        // Not tsconfig.json: that one includes only src/**, so every file
+        // under test/** failed to parse. See tsconfig.eslint.json.
+        project: './tsconfig.eslint.json',
         sourceType: 'module',
       },
     },

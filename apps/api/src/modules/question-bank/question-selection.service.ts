@@ -33,7 +33,19 @@ export class QuestionSelectionService {
       where.id = { notIn: excludeIds };
     }
 
-    const prismaClient = 'question' in db ? db : (db as any);
+    // Both PrismaService and Prisma.TransactionClient expose `question`, but
+    // the union does not resolve to a single callable signature, so the one
+    // call we make is described structurally instead of cast to `any`.
+    type QuestionFinder = {
+      question: {
+        findMany(args: {
+          where: Record<string, unknown>;
+          select: { id: true };
+          orderBy: { id: 'asc' };
+        }): Promise<{ id: string }[]>;
+      };
+    };
+    const prismaClient = db as unknown as QuestionFinder;
     return prismaClient.question.findMany({
       where,
       select: { id: true },

@@ -95,7 +95,9 @@ export default function ExamsPage() {
   }, []);
 
   useEffect(() => {
-    fetchExams();
+    void (async () => {
+      await fetchExams();
+    })();
   }, [fetchExams]);
 
   const filtered = exams.filter((e) => {

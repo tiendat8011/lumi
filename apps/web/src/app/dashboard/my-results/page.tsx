@@ -132,7 +132,9 @@ export default function MyResultsPage() {
   }, []);
 
   useEffect(() => {
-    fetchAttempts();
+    void (async () => {
+      await fetchAttempts();
+    })();
   }, [fetchAttempts]);
 
   if (loading) {
@@ -305,15 +307,21 @@ function StudentReviewDialog({
 
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
     api<{ questions: ReviewItem[] }>(`/attempts/${attemptId}/review`)
       .then((data) => setReview(data.questions ?? []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [open, attemptId]);
 
+  // The spinner is raised by the event that opens the dialog, so the effect
+  // below only has to clear it when the fetch settles.
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) setLoading(true);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={<Button variant="outline" size="sm" />}
       >

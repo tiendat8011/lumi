@@ -72,11 +72,23 @@ export default function AnalyticsPage() {
     api<Exam[]>('/exams').then(setExams).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!selectedClassroom) {
-      setClassroomStats(null);
-      return;
+  // Clearing the panels when the selection is emptied belongs to the change
+  // event, not to an effect reacting to it, so these effects only fetch.
+  const handleClassroomChange = (next: string) => {
+    setSelectedClassroom(next);
+    if (!next) setClassroomStats(null);
+  };
+
+  const handleExamChange = (next: string) => {
+    setSelectedExam(next);
+    if (!next) {
+      setDistribution([]);
+      setQuestionStats([]);
     }
+  };
+
+  useEffect(() => {
+    if (!selectedClassroom) return;
     api<ClassroomStats>(
       `/analytics/classrooms/${selectedClassroom}`,
     )
@@ -85,11 +97,7 @@ export default function AnalyticsPage() {
   }, [selectedClassroom]);
 
   useEffect(() => {
-    if (!selectedExam) {
-      setDistribution([]);
-      setQuestionStats([]);
-      return;
-    }
+    if (!selectedExam) return;
     api<{ buckets: DistBucket[] }>(
       `/analytics/exams/${selectedExam}/distribution`,
     )
@@ -120,7 +128,9 @@ export default function AnalyticsPage() {
           <select
             className="rounded-md border bg-background px-3 py-2 text-sm"
             value={selectedClassroom}
-            onChange={(e) => setSelectedClassroom(e.target.value)}
+            onChange={(e) =>
+              handleClassroomChange(e.target.value)
+            }
           >
             <option value="">-- Chọn lớp --</option>
             {classrooms.map((c) => (
@@ -167,7 +177,7 @@ export default function AnalyticsPage() {
         <select
           className="rounded-md border bg-background px-3 py-2 text-sm"
           value={selectedExam}
-          onChange={(e) => setSelectedExam(e.target.value)}
+          onChange={(e) => handleExamChange(e.target.value)}
         >
           <option value="">-- Chọn đề thi --</option>
           {exams

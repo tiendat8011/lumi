@@ -1,0 +1,8 @@
+// Type-aware linting needs every file ESLint touches to belong to a TS
+// project. tsconfig.json deliberately includes only src/**, because its
+// `include` is what `nest build` compiles — adding test/** there would emit
+// the tests into dist/. This project exists purely for the linter.
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "test/**/*", "prisma/**/*", "*.ts", "*.mjs"]
+}

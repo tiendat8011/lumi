@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -49,7 +47,6 @@ interface BankQuestion {
 
 export default function ExamDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
   const [exam, setExam] = useState<ExamDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +63,9 @@ export default function ExamDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    fetchExam();
+    void (async () => {
+      await fetchExam();
+    })();
   }, [fetchExam]);
 
   const handlePublish = async () => {
@@ -204,7 +203,10 @@ function AddQuestionDialog({
   }, []);
 
   useEffect(() => {
-    if (open) fetchQuestions();
+    if (!open) return;
+    void (async () => {
+      await fetchQuestions();
+    })();
   }, [open, fetchQuestions]);
 
   const handleAdd = async (questionId: string) => {

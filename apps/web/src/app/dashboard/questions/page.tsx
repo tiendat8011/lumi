@@ -28,14 +28,12 @@ import {
   Plus,
   Trash2,
   Check,
-  X,
   Search,
   FolderPlus,
   FileQuestion,
   FileUp,
   FolderOpen,
   CheckCircle2,
-  MoreHorizontal,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -70,6 +68,30 @@ interface OptionInput {
   content: string;
   isCorrect: boolean;
   position: number;
+}
+
+/**
+ * The option rows a question type starts with, or `null` for the types that
+ * take no options. Returns fresh objects so each reset is a new array.
+ */
+function defaultOptionsForType(
+  type: string,
+): OptionInput[] | null {
+  if (type === 'TRUE_FALSE') {
+    return [
+      { content: 'Đúng', isCorrect: true, position: 0 },
+      { content: 'Sai', isCorrect: false, position: 1 },
+    ];
+  }
+  if (type === 'MCQ' || type === 'MCQ_MULTI') {
+    return [
+      { content: '', isCorrect: true, position: 0 },
+      { content: '', isCorrect: false, position: 1 },
+      { content: '', isCorrect: false, position: 2 },
+      { content: '', isCorrect: false, position: 3 },
+    ];
+  }
+  return null;
 }
 
 const DIFFICULTY_LABELS: Record<string, string> = {
@@ -450,12 +472,9 @@ function CreateQuestionDialog({
   const [difficulty, setDifficulty] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [correctAnswer, setCorrectAnswer] = useState('');
-  const [options, setOptions] = useState<OptionInput[]>([
-    { content: '', isCorrect: true, position: 0 },
-    { content: '', isCorrect: false, position: 1 },
-    { content: '', isCorrect: false, position: 2 },
-    { content: '', isCorrect: false, position: 3 },
-  ]);
+  const [options, setOptions] = useState<OptionInput[]>(
+    () => defaultOptionsForType('MCQ') ?? [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -463,21 +482,13 @@ function CreateQuestionDialog({
     type,
   );
 
-  useEffect(() => {
-    if (type === 'TRUE_FALSE') {
-      setOptions([
-        { content: 'Đúng', isCorrect: true, position: 0 },
-        { content: 'Sai', isCorrect: false, position: 1 },
-      ]);
-    } else if (type === 'MCQ' || type === 'MCQ_MULTI') {
-      setOptions([
-        { content: '', isCorrect: true, position: 0 },
-        { content: '', isCorrect: false, position: 1 },
-        { content: '', isCorrect: false, position: 2 },
-        { content: '', isCorrect: false, position: 3 },
-      ]);
-    }
-  }, [type]);
+  // The option rows follow the question type, so they are reset in the same
+  // event that changes the type rather than in an effect that reacts to it.
+  const handleTypeChange = (next: string) => {
+    setType(next);
+    const defaults = defaultOptionsForType(next);
+    if (defaults) setOptions(defaults);
+  };
 
   const updateOption = (
     index: number,
@@ -554,7 +565,9 @@ function CreateQuestionDialog({
               <select
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                 value={type}
-                onChange={(e) => setType(e.target.value)}
+                onChange={(e) =>
+                  handleTypeChange(e.target.value)
+                }
               >
                 <option value="MCQ">Trắc nghiệm</option>
                 <option value="MCQ_MULTI">

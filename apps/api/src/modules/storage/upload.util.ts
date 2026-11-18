@@ -59,11 +59,26 @@ function checkMagicBytes(ext: string, buffer: Buffer): boolean {
   return buffer.subarray(0, magic.length).equals(magic);
 }
 
+/**
+ * @fastify/multipart augments FastifyRequest with `file()`, but that
+ * augmentation is not visible from this module, so the parts we use are
+ * declared here rather than casting the request to `any`.
+ */
+type MultipartFile = {
+  filename?: string;
+  mimetype?: string;
+  file: AsyncIterable<Buffer> & { truncated: boolean };
+};
+
+type MultipartRequest = FastifyRequest & {
+  file(): Promise<MultipartFile | undefined>;
+};
+
 export async function readUpload(
   req: FastifyRequest,
   options: UploadOptions,
 ): Promise<UploadResult> {
-  const file = await (req as any).file();
+  const file = await (req as MultipartRequest).file();
   if (!file) {
     throw fail(400, 'VALIDATION_ERROR', 'Không tìm thấy tệp tải lên');
   }

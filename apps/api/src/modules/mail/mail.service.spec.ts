@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from './mail.service';
 
@@ -27,7 +28,10 @@ describe('MailService', () => {
 
     service = module.get(MailService);
     service.onModuleInit();
-    logSpy = jest.spyOn((service as any).logger, 'log');
+    // `logger` is private; reach it through a narrow structural type rather
+    // than `any` so a rename still fails the build.
+    const withLogger = service as unknown as { logger: Logger };
+    logSpy = jest.spyOn(withLogger.logger, 'log');
   });
 
   it('logs when no SMTP_HOST is set', async () => {

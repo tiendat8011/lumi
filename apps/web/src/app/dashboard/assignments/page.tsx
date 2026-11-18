@@ -22,9 +22,7 @@ import {
   Play,
   FileText,
   CalendarDays,
-  Users,
   Upload,
-  ChevronRight,
   PencilLine,
   CheckCircle2,
   AlertCircle,
@@ -102,21 +100,35 @@ function TeacherAssignments() {
         `/assignments?classroomId=${selectedClassroom}`,
       );
       setAssignments(data);
-      if (data.length > 0 && !selected) setSelected(data[0]);
+      // Keep the current selection if there is one, otherwise fall back to the
+      // first assignment. The updater form avoids reading `selected` here,
+      // which would otherwise have to be a dependency and would rebuild this
+      // callback — and so refetch — on every selection change.
+      setSelected((prev) => prev ?? data[0] ?? null);
     } catch {
       // ignore
     }
   }, [selectedClassroom]);
 
+  // Switching classroom drops the open assignment; that reset belongs to the
+  // click that switches it, not to an effect reacting to the new value.
+  const handleClassroomChange = (next: string) => {
+    if (next === selectedClassroom) return;
+    setSelectedClassroom(next);
+    setSelected(null);
+  };
+
   useEffect(() => {
-    fetchClassrooms();
+    void (async () => {
+      await fetchClassrooms();
+    })();
   }, [fetchClassrooms]);
 
   useEffect(() => {
-    if (selectedClassroom) {
-      setSelected(null);
-      fetchAssignments();
-    }
+    if (!selectedClassroom) return;
+    void (async () => {
+      await fetchAssignments();
+    })();
   }, [selectedClassroom, fetchAssignments]);
 
   const handleClose = async (id: string) => {
@@ -165,7 +177,7 @@ function TeacherAssignments() {
                     : 'outline'
                 }
                 size="sm"
-                onClick={() => setSelectedClassroom(c.id)}
+                onClick={() => handleClassroomChange(c.id)}
               >
                 {c.name}
               </Button>
@@ -402,21 +414,35 @@ function StudentAssignments() {
         `/assignments?classroomId=${selectedClassroom}`,
       );
       setAssignments(data);
-      if (data.length > 0 && !selected) setSelected(data[0]);
+      // Keep the current selection if there is one, otherwise fall back to the
+      // first assignment. The updater form avoids reading `selected` here,
+      // which would otherwise have to be a dependency and would rebuild this
+      // callback — and so refetch — on every selection change.
+      setSelected((prev) => prev ?? data[0] ?? null);
     } catch {
       // ignore
     }
   }, [selectedClassroom]);
 
+  // Switching classroom drops the open assignment; that reset belongs to the
+  // click that switches it, not to an effect reacting to the new value.
+  const handleClassroomChange = (next: string) => {
+    if (next === selectedClassroom) return;
+    setSelectedClassroom(next);
+    setSelected(null);
+  };
+
   useEffect(() => {
-    fetchClassrooms();
+    void (async () => {
+      await fetchClassrooms();
+    })();
   }, [fetchClassrooms]);
 
   useEffect(() => {
-    if (selectedClassroom) {
-      setSelected(null);
-      fetchAssignments();
-    }
+    if (!selectedClassroom) return;
+    void (async () => {
+      await fetchAssignments();
+    })();
   }, [selectedClassroom, fetchAssignments]);
 
   const formatDate = (d: string) =>
@@ -448,7 +474,7 @@ function StudentAssignments() {
                   : 'outline'
               }
               size="sm"
-              onClick={() => setSelectedClassroom(c.id)}
+              onClick={() => handleClassroomChange(c.id)}
             >
               {c.name}
             </Button>

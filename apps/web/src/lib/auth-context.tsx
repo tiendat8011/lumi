@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { api, setTokens, clearTokens, loadTokens, getAccessToken } from './api';
 
 interface User {
@@ -31,26 +31,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchUser = useCallback(async () => {
-    loadTokens();
-    if (!getAccessToken()) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const data = await api<User>('/auth/me');
-      setUser(data);
-    } catch {
-      clearTokens();
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Bootstrap: read the stored token and resolve the current user. The work is
+  // launched as a task rather than called straight from the effect body so no
+  // state update is reachable synchronously from the effect.
   useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    let cancelled = false;
+
+    void (async () => {
+      loadTokens();
+      if (!getAccessToken()) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+      try {
+        const data = await api<User>('/auth/me');
+        if (!cancelled) setUser(data);
+      } catch {
+        clearTokens();
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const login = async (email: string, password: string) => {
     const data = await api<{ accessToken: string; refreshToken: string; user: User }>(

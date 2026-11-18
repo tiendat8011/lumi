@@ -55,7 +55,9 @@ export default function ClassroomDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    fetchData();
+    void (async () => {
+      await fetchData();
+    })();
   }, [fetchData]);
 
   async function handleDelete() {

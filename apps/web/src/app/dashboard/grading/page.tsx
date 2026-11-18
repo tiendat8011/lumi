@@ -94,13 +94,26 @@ export default function GradingPage() {
       .catch(() => setAttempts([]));
   }
 
-  useEffect(() => {
+  // Picking a different exam clears the open submission, and picking a
+  // submission primes the panel for it. Both resets belong to the event that
+  // causes them rather than to an effect reacting to the new id.
+  const handleExamChange = (next: string) => {
+    if (next === selectedExamId) return;
+    setSelectedExamId(next);
     setSelectedAttemptId('');
     setReview([]);
-    if (!selectedExamId) {
-      setAttempts([]);
-      return;
-    }
+    if (!next) setAttempts([]);
+  };
+
+  const handleSelectAttempt = (attempt: AttemptResult) => {
+    setSelectedAttemptId(attempt.id);
+    setReviewLoading(true);
+    setScore(attempt.score != null ? Number(attempt.score) : 0);
+    setFeedback(attempt.feedback || '');
+  };
+
+  useEffect(() => {
+    if (!selectedExamId) return;
     let cancelled = false;
     api<AttemptResult[]>(
       `/attempts?examId=${selectedExamId}`,
@@ -122,7 +135,6 @@ export default function GradingPage() {
   useEffect(() => {
     if (!selectedAttemptId) return;
     let cancelled = false;
-    setReviewLoading(true);
     api<ReviewResponse>(`/attempts/${selectedAttemptId}/review`)
       .then((data) => {
         if (!cancelled) setReview(data.questions ?? []);
@@ -133,12 +145,6 @@ export default function GradingPage() {
       .finally(() => {
         if (!cancelled) setReviewLoading(false);
       });
-
-    const attempt = attempts.find((a) => a.id === selectedAttemptId);
-    if (attempt) {
-      setScore(attempt.score != null ? Number(attempt.score) : 0);
-      setFeedback(attempt.feedback || '');
-    }
     return () => {
       cancelled = true;
     };
@@ -175,7 +181,7 @@ export default function GradingPage() {
           (a, i) => i > currentIdx && a.score == null,
         );
         if (nextUngraded) {
-          setSelectedAttemptId(nextUngraded.id);
+          handleSelectAttempt(nextUngraded);
         }
       }
     } catch {
@@ -236,7 +242,7 @@ export default function GradingPage() {
             <select
               className="w-full rounded-md border bg-background px-3 py-2 text-sm"
               value={selectedExamId}
-              onChange={(e) => setSelectedExamId(e.target.value)}
+              onChange={(e) => handleExamChange(e.target.value)}
             >
               {exams.map((exam) => (
                 <option key={exam.id} value={exam.id}>
@@ -263,7 +269,7 @@ export default function GradingPage() {
               attempts.map((attempt) => (
                 <button
                   key={attempt.id}
-                  onClick={() => setSelectedAttemptId(attempt.id)}
+                  onClick={() => handleSelectAttempt(attempt)}
                   className={`flex w-full items-center gap-3 border-b px-3 py-2.5 text-left transition-colors hover:bg-accent/50 ${
                     selectedAttemptId === attempt.id
                       ? 'bg-accent'
